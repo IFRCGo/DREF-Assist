@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-handler"
+version = "0.1.0"
+description = "LLM prompting and response parsing for DREF Assist"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.setuptools]
+packages = ["llm_handler"]
+package-dir = {"llm_handler" = "."}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
