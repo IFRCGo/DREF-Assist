@@ -161,14 +161,10 @@ class ConflictDetector:
         Returns True if values are meaningfully different.
         """
         # Handle None/empty cases
-        if existing is None and new is None:
-            return False
-        if existing is None or new is None:
-            return True
-        
-        # Empty strings/lists are treated as None
+        # Check if BOTH are empty first (includes None, "", [])
         if self._is_empty(existing) and self._is_empty(new):
             return False
+        # If only one is empty, that's a conflict
         if self._is_empty(existing) or self._is_empty(new):
             return True
         
