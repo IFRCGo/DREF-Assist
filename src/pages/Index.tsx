@@ -5,6 +5,7 @@ import StepIndicator from "@/components/StepIndicator";
 import SharingSection from "@/components/SharingSection";
 import EssentialInformationForm from "@/components/EssentialInformationForm";
 import EventDetailForm from "@/components/EventDetailForm";
+import ActionsNeedsForm from "@/components/ActionsNeedsForm";
 
 const Index = () => {
   const [activeStep, setActiveStep] = useState(0);
@@ -54,7 +55,10 @@ const Index = () => {
         {activeStep === 1 && (
           <EventDetailForm onBack={goBack} onContinue={goNext} />
         )}
-        {activeStep >= 2 && (
+        {activeStep === 2 && (
+          <ActionsNeedsForm onBack={goBack} onContinue={goNext} />
+        )}
+        {activeStep >= 3 && (
           <div className="py-12 text-center text-muted-foreground">
             <p className="text-sm">This step is under construction.</p>
             <div className="mt-8 flex items-center justify-center gap-3">
