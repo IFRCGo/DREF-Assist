@@ -26,9 +26,9 @@ const IFRCHeader = () => {
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
                 <span className="text-sm font-bold text-primary-foreground">GO</span>
               </div>
-              <span className="text-lg font-bold text-primary font-heading">+IFRC<span className="text-primary">+</span>CIFRC
+              <span className="text-lg font-bold text-primary font-heading">+IFRC+<span className="text-primary">+</span>CIFRC
               </span>
-              <span className="ml-1 rounded bg-ifrc-staging px-2 py-0.5 text-xs font-semibold text-primary-foreground">
+              <span className="ml-1 rounded bg-ifrc-staging px-2 text-xs font-semibold text-primary-foreground py-[3px]">
                 staging
               </span>
             </div>
