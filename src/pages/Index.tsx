@@ -1,10 +1,17 @@
+import { useState } from "react";
 import IFRCHeader from "@/components/IFRCHeader";
 import IFRCFooter from "@/components/IFRCFooter";
 import StepIndicator from "@/components/StepIndicator";
 import SharingSection from "@/components/SharingSection";
 import EssentialInformationForm from "@/components/EssentialInformationForm";
+import EventDetailForm from "@/components/EventDetailForm";
 
 const Index = () => {
+  const [activeStep, setActiveStep] = useState(0);
+
+  const goNext = () => setActiveStep((s) => Math.min(s + 1, 4));
+  const goBack = () => setActiveStep((s) => Math.max(s - 1, 0));
+
   return (
     <div className="min-h-screen bg-background">
       <IFRCHeader />
@@ -35,13 +42,37 @@ const Index = () => {
         </div>
 
         {/* Step indicator */}
-        <StepIndicator />
+        <StepIndicator activeStep={activeStep} />
 
-        {/* Sharing section */}
-        <SharingSection />
+        {/* Sharing section - only on first step */}
+        {activeStep === 0 && <SharingSection />}
 
-        {/* Essential information form */}
-        <EssentialInformationForm />
+        {/* Step content */}
+        {activeStep === 0 && (
+          <EssentialInformationForm onBack={goBack} onContinue={goNext} />
+        )}
+        {activeStep === 1 && (
+          <EventDetailForm onBack={goBack} onContinue={goNext} />
+        )}
+        {activeStep >= 2 && (
+          <div className="py-12 text-center text-muted-foreground">
+            <p className="text-sm">This step is under construction.</p>
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <button
+                onClick={goBack}
+                className="rounded border border-primary px-6 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+              >
+                Back
+              </button>
+              <button
+                onClick={goNext}
+                className="rounded bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
       </main>
 
       <IFRCFooter />

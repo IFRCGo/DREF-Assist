@@ -16,7 +16,12 @@ const TextInput = ({ placeholder }: { placeholder?: string }) => (
   />
 );
 
-const EssentialInformationForm = () => {
+interface EssentialInformationFormProps {
+  onBack: () => void;
+  onContinue: () => void;
+}
+
+const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFormProps) => {
   return (
     <section>
       {/* Staging banner */}
@@ -145,10 +150,16 @@ const EssentialInformationForm = () => {
 
       {/* Navigation buttons */}
       <div className="mt-8 flex items-center justify-center gap-3">
-        <button className="rounded border border-primary px-6 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
+        <button
+          onClick={onBack}
+          className="rounded border border-primary px-6 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+        >
           Back
         </button>
-        <button className="rounded bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
+        <button
+          onClick={onContinue}
+          className="rounded bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+        >
           Continue
         </button>
       </div>
