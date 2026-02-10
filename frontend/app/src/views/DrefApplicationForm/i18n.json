@@ -19,6 +19,7 @@
         "formBackButtonLabel": "Back",
         "formLoadingMessage": "Loading DREF Application...",
         "formEditNotAvailableInSelectedLanguageMessage": "DREF Application is currently in view-only mode.",
-        "drefFeedbackForm": "Provide feedback on IFRC DREF"
+        "drefFeedbackForm": "Provide feedback on IFRC DREF",
+        "formDREFAssistButtonLabel": "DREF Assist"
     }
 }
