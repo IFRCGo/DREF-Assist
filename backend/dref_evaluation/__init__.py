@@ -1,0 +1,1 @@
+﻿# DREF Quality Evaluation Module# Standalone Django app for evaluating DREF applications against IFRC quality criteria__version__ = "1.0.0"__author__ = "IFRC"default_app_config = 'dref_evaluation.apps.DrefEvaluationConfig'
