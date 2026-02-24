@@ -15,7 +15,7 @@ class ConflictResolverService:
     
     def __init__(self, field_labels: Optional[Dict[str, str]] = None):
         """
-        Initialize conflict resolver service.
+        Initialize conflict resolver service
         
         Args:
             field_labels: Human-readable labels for form fields
