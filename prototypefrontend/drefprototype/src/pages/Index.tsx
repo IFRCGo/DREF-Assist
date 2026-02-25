@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Bot } from "lucide-react";
 import IFRCHeader from "@/components/IFRCHeader";
 import IFRCFooter from "@/components/IFRCFooter";
@@ -10,13 +10,29 @@ import ActionsNeedsForm from "@/components/ActionsNeedsForm";
 import OperationForm from "@/components/OperationForm";
 import TimeframesContactsForm from "@/components/TimeframesContactsForm";
 import DREFAssistChat from "@/components/DREFAssistChat";
+import { type EnrichedFormState, type FieldUpdate } from "@/lib/api";
 
 const Index = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
+  const [formState, setFormState] = useState<EnrichedFormState>({});
 
   const goNext = () => setActiveStep((s) => Math.min(s + 1, 5));
   const goBack = () => setActiveStep((s) => Math.max(s - 1, 0));
+
+  const handleFieldUpdates = useCallback((updates: FieldUpdate[]) => {
+    setFormState((prev) => {
+      const next = { ...prev };
+      for (const update of updates) {
+        next[update.field_id] = {
+          value: update.value,
+          source: update.source,
+          timestamp: update.timestamp,
+        };
+      }
+      return next;
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -93,7 +109,13 @@ const Index = () => {
 
       <IFRCFooter />
 
-      {chatOpen && <DREFAssistChat onClose={() => setChatOpen(false)} />}
+      {chatOpen && (
+        <DREFAssistChat
+          onClose={() => setChatOpen(false)}
+          formState={formState}
+          onFieldUpdates={handleFieldUpdates}
+        />
+      )}
     </div>
   );
 };
