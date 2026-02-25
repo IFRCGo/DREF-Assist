@@ -6,7 +6,7 @@ from media_processor.utils.transcription import transcribe_audio, TranscriptionE
 
 
 class TestTranscribeAudio:
-    @patch("media_processor.utils.transcription.OpenAI")
+    @patch("media_processor.utils.transcription.AzureOpenAI")
     def test_successful_transcription(self, mock_openai_class):
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -20,7 +20,7 @@ class TestTranscribeAudio:
         assert result == "This is the transcribed text."
         mock_client.audio.transcriptions.create.assert_called_once()
 
-    @patch("media_processor.utils.transcription.OpenAI")
+    @patch("media_processor.utils.transcription.AzureOpenAI")
     def test_empty_transcription(self, mock_openai_class):
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -33,7 +33,7 @@ class TestTranscribeAudio:
 
         assert result == ""
 
-    @patch("media_processor.utils.transcription.OpenAI")
+    @patch("media_processor.utils.transcription.AzureOpenAI")
     def test_api_error_raises_transcription_error(self, mock_openai_class):
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -45,7 +45,7 @@ class TestTranscribeAudio:
 
         assert "API Error" in str(exc_info.value)
 
-    @patch("media_processor.utils.transcription.OpenAI")
+    @patch("media_processor.utils.transcription.AzureOpenAI")
     def test_uses_whisper_model(self, mock_openai_class):
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -56,4 +56,4 @@ class TestTranscribeAudio:
         transcribe_audio(b"audio", filename="test.mp3")
 
         call_kwargs = mock_client.audio.transcriptions.create.call_args[1]
-        assert call_kwargs["model"] == "whisper-1"
+        assert call_kwargs["model"] == "whisper"
