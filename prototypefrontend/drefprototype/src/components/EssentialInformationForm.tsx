@@ -7,21 +7,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ImageUploadButton from "./ImageUploadButton";
-
-const TextInput = ({ placeholder }: { placeholder?: string }) => (
-  <input
-    type="text"
-    placeholder={placeholder}
-    className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-  />
-);
+import { type EnrichedFormState } from "@/lib/api";
 
 interface EssentialInformationFormProps {
   onBack: () => void;
   onContinue: () => void;
+  formState?: EnrichedFormState;
+  onFieldChange?: (fieldId: string, value: any) => void;
 }
 
-const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFormProps) => {
+const getField = (formState: EnrichedFormState | undefined, fieldId: string): string => {
+  const val = formState?.[fieldId]?.value;
+  return val != null ? String(val) : "";
+};
+
+const EssentialInformationForm = ({ onBack, onContinue, formState, onFieldChange }: EssentialInformationFormProps) => {
+  const field = (id: string) => getField(formState, id);
+  const change = (id: string) => (value: string) => onFieldChange?.(id, value);
+
   return (
     <section>
       {/* Staging banner */}
@@ -39,31 +42,31 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
           description="Indicate your National Society by selecting it from the drop-down list."
           required
         >
-          <Select>
+          <Select value={field("operation_overview.national_society") || undefined} onValueChange={change("operation_overview.national_society")}>
             <SelectTrigger>
               <SelectValue placeholder="Select National Society" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="afghan">Afghan Red Crescent Society</SelectItem>
-              <SelectItem value="albanian">Albanian Red Cross</SelectItem>
-              <SelectItem value="algerian">Algerian Red Crescent</SelectItem>
-              <SelectItem value="argentinian">Argentine Red Cross</SelectItem>
-              <SelectItem value="australian">Australian Red Cross</SelectItem>
-              <SelectItem value="bangladesh">Bangladesh Red Crescent Society</SelectItem>
-              <SelectItem value="british">British Red Cross</SelectItem>
-              <SelectItem value="colombian">Colombian Red Cross Society</SelectItem>
-              <SelectItem value="ethiopian">Ethiopian Red Cross Society</SelectItem>
-              <SelectItem value="french">French Red Cross</SelectItem>
-              <SelectItem value="german">German Red Cross</SelectItem>
-              <SelectItem value="indian">Indian Red Cross Society</SelectItem>
-              <SelectItem value="indonesian">Indonesian Red Cross Society</SelectItem>
-              <SelectItem value="japanese">Japanese Red Cross Society</SelectItem>
-              <SelectItem value="kenyan">Kenya Red Cross Society</SelectItem>
-              <SelectItem value="mexican">Mexican Red Cross</SelectItem>
-              <SelectItem value="mozambique">Mozambique Red Cross Society</SelectItem>
-              <SelectItem value="nepal">Nepal Red Cross Society</SelectItem>
-              <SelectItem value="nigerian">Nigerian Red Cross Society</SelectItem>
-              <SelectItem value="philippine">Philippine Red Cross</SelectItem>
+              <SelectItem value="Afghan Red Crescent Society">Afghan Red Crescent Society</SelectItem>
+              <SelectItem value="Albanian Red Cross">Albanian Red Cross</SelectItem>
+              <SelectItem value="Algerian Red Crescent">Algerian Red Crescent</SelectItem>
+              <SelectItem value="Argentine Red Cross">Argentine Red Cross</SelectItem>
+              <SelectItem value="Australian Red Cross">Australian Red Cross</SelectItem>
+              <SelectItem value="Bangladesh Red Crescent Society">Bangladesh Red Crescent Society</SelectItem>
+              <SelectItem value="British Red Cross">British Red Cross</SelectItem>
+              <SelectItem value="Colombian Red Cross Society">Colombian Red Cross Society</SelectItem>
+              <SelectItem value="Ethiopian Red Cross Society">Ethiopian Red Cross Society</SelectItem>
+              <SelectItem value="French Red Cross">French Red Cross</SelectItem>
+              <SelectItem value="German Red Cross">German Red Cross</SelectItem>
+              <SelectItem value="Indian Red Cross Society">Indian Red Cross Society</SelectItem>
+              <SelectItem value="Indonesian Red Cross Society">Indonesian Red Cross Society</SelectItem>
+              <SelectItem value="Japanese Red Cross Society">Japanese Red Cross Society</SelectItem>
+              <SelectItem value="Kenya Red Cross Society">Kenya Red Cross Society</SelectItem>
+              <SelectItem value="Mexican Red Cross">Mexican Red Cross</SelectItem>
+              <SelectItem value="Mozambique Red Cross Society">Mozambique Red Cross Society</SelectItem>
+              <SelectItem value="Nepal Red Cross Society">Nepal Red Cross Society</SelectItem>
+              <SelectItem value="Nigerian Red Cross Society">Nigerian Red Cross Society</SelectItem>
+              <SelectItem value="Philippine Red Cross">Philippine Red Cross</SelectItem>
             </SelectContent>
           </Select>
         </FormField>
@@ -96,15 +99,14 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
         <FormField label="DREF Type" required>
           <div>
             <p className="mb-1 text-xs text-muted-foreground">Type of DREF</p>
-            <Select>
+            <Select value={field("operation_overview.dref_type") || undefined} onValueChange={change("operation_overview.dref_type")}>
               <SelectTrigger>
                 <SelectValue placeholder="Select DREF type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="imminent">Imminent Crisis</SelectItem>
-                <SelectItem value="assessment">Assessment</SelectItem>
-                <SelectItem value="response">Response</SelectItem>
-                <SelectItem value="loan">Loan</SelectItem>
+                <SelectItem value="Imminent Crisis">Imminent Crisis</SelectItem>
+                <SelectItem value="Response">Response</SelectItem>
+                <SelectItem value="Protracted Crisis">Protracted Crisis</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -115,24 +117,23 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <p className="mb-1 text-xs text-muted-foreground">Type of Disaster</p>
-                <Select>
+                <Select value={field("operation_overview.disaster_type") || undefined} onValueChange={change("operation_overview.disaster_type")}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select disaster type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="flood">Flood</SelectItem>
-                    <SelectItem value="earthquake">Earthquake</SelectItem>
-                    <SelectItem value="cyclone">Cyclone / Hurricane / Typhoon</SelectItem>
-                    <SelectItem value="drought">Drought</SelectItem>
-                    <SelectItem value="epidemic">Epidemic</SelectItem>
-                    <SelectItem value="volcanic">Volcanic Eruption</SelectItem>
-                    <SelectItem value="wildfire">Wildfire</SelectItem>
-                    <SelectItem value="landslide">Landslide / Mudslide</SelectItem>
-                    <SelectItem value="coldwave">Cold Wave</SelectItem>
-                    <SelectItem value="heatwave">Heat Wave</SelectItem>
-                    <SelectItem value="tsunami">Tsunami</SelectItem>
-                    <SelectItem value="conflict">Population Movement / Conflict</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                    <SelectItem value="Flood">Flood</SelectItem>
+                    <SelectItem value="Earthquake">Earthquake</SelectItem>
+                    <SelectItem value="Cyclone">Cyclone / Hurricane / Typhoon</SelectItem>
+                    <SelectItem value="Drought">Drought</SelectItem>
+                    <SelectItem value="Epidemic">Epidemic</SelectItem>
+                    <SelectItem value="Volcanic Eruption">Volcanic Eruption</SelectItem>
+                    <SelectItem value="Fire">Wildfire</SelectItem>
+                    <SelectItem value="Landslide">Landslide / Mudslide</SelectItem>
+                    <SelectItem value="Tsunami">Tsunami</SelectItem>
+                    <SelectItem value="Civil Unrest">Civil Unrest</SelectItem>
+                    <SelectItem value="Population Movement">Population Movement / Conflict</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -140,13 +141,13 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
                 <p className="mb-1 text-xs text-muted-foreground">
                   Type of Onset <span className="text-primary">*</span>
                 </p>
-                <Select>
+                <Select value={field("operation_overview.disaster_onset") || undefined} onValueChange={change("operation_overview.disaster_onset")}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select onset type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="sudden">Sudden Onset</SelectItem>
-                    <SelectItem value="slow">Slow Onset</SelectItem>
+                    <SelectItem value="Sudden">Sudden Onset</SelectItem>
+                    <SelectItem value="Slow">Slow Onset</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -155,14 +156,14 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
               <p className="mb-1 text-xs text-muted-foreground">
                 Disaster Category <span className="text-primary">*</span>
               </p>
-              <Select>
+              <Select value={field("operation_overview.disaster_category") || undefined} onValueChange={change("operation_overview.disaster_category")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select disaster category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="yellow">Yellow (Small-scale)</SelectItem>
-                  <SelectItem value="orange">Orange (Medium-scale)</SelectItem>
-                  <SelectItem value="red">Red (Large-scale)</SelectItem>
+                  <SelectItem value="Yellow">Yellow (Small-scale)</SelectItem>
+                  <SelectItem value="Orange">Orange (Medium-scale)</SelectItem>
+                  <SelectItem value="Red">Red (Large-scale)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -173,43 +174,38 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <p className="mb-1 text-xs text-muted-foreground">Add Country</p>
-              <Select>
+              <Select value={field("operation_overview.country") || undefined} onValueChange={change("operation_overview.country")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select country" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="af">Afghanistan</SelectItem>
-                  <SelectItem value="bd">Bangladesh</SelectItem>
-                  <SelectItem value="br">Brazil</SelectItem>
-                  <SelectItem value="co">Colombia</SelectItem>
-                  <SelectItem value="et">Ethiopia</SelectItem>
-                  <SelectItem value="ht">Haiti</SelectItem>
-                  <SelectItem value="id">Indonesia</SelectItem>
-                  <SelectItem value="ke">Kenya</SelectItem>
-                  <SelectItem value="mg">Madagascar</SelectItem>
-                  <SelectItem value="mz">Mozambique</SelectItem>
-                  <SelectItem value="np">Nepal</SelectItem>
-                  <SelectItem value="ng">Nigeria</SelectItem>
-                  <SelectItem value="pk">Pakistan</SelectItem>
-                  <SelectItem value="ph">Philippines</SelectItem>
-                  <SelectItem value="so">Somalia</SelectItem>
+                  <SelectItem value="Afghanistan">Afghanistan</SelectItem>
+                  <SelectItem value="Bangladesh">Bangladesh</SelectItem>
+                  <SelectItem value="Brazil">Brazil</SelectItem>
+                  <SelectItem value="Colombia">Colombia</SelectItem>
+                  <SelectItem value="Ethiopia">Ethiopia</SelectItem>
+                  <SelectItem value="Haiti">Haiti</SelectItem>
+                  <SelectItem value="Indonesia">Indonesia</SelectItem>
+                  <SelectItem value="Kenya">Kenya</SelectItem>
+                  <SelectItem value="Madagascar">Madagascar</SelectItem>
+                  <SelectItem value="Mozambique">Mozambique</SelectItem>
+                  <SelectItem value="Nepal">Nepal</SelectItem>
+                  <SelectItem value="Nigeria">Nigeria</SelectItem>
+                  <SelectItem value="Pakistan">Pakistan</SelectItem>
+                  <SelectItem value="Philippines">Philippines</SelectItem>
+                  <SelectItem value="Somalia">Somalia</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
               <p className="mb-1 text-xs text-muted-foreground">Region/Province</p>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select region" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="africa">Africa</SelectItem>
-                  <SelectItem value="americas">Americas</SelectItem>
-                  <SelectItem value="asia-pacific">Asia Pacific</SelectItem>
-                  <SelectItem value="europe">Europe</SelectItem>
-                  <SelectItem value="mena">Middle East & North Africa</SelectItem>
-                </SelectContent>
-              </Select>
+              <input
+                type="text"
+                value={field("operation_overview.region_province")}
+                onChange={(e) => onFieldChange?.("operation_overview.region_province", e.target.value)}
+                placeholder="Enter region or province"
+                className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
             </div>
           </div>
         </FormField>
@@ -217,7 +213,13 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
         <FormField label="DREF Title" required>
           <div className="flex gap-2">
             <div className="flex-1">
-              <TextInput />
+              <input
+                type="text"
+                value={field("operation_overview.dref_title")}
+                onChange={(e) => onFieldChange?.("operation_overview.dref_title", e.target.value)}
+                placeholder=""
+                className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
             </div>
             <button className="rounded border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
               Generate title
@@ -228,11 +230,23 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
         <FormField label="Emergency appeal planned">
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input type="radio" name="emergency" className="accent-primary" />
+              <input
+                type="radio"
+                name="emergency"
+                className="accent-primary"
+                checked={field("operation_overview.emergency_appeal_planned") === "true"}
+                onChange={() => onFieldChange?.("operation_overview.emergency_appeal_planned", true)}
+              />
               Yes
             </label>
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input type="radio" name="emergency" className="accent-primary" />
+              <input
+                type="radio"
+                name="emergency"
+                className="accent-primary"
+                checked={field("operation_overview.emergency_appeal_planned") === "false"}
+                onChange={() => onFieldChange?.("operation_overview.emergency_appeal_planned", false)}
+              />
               No
             </label>
           </div>

@@ -34,6 +34,17 @@ const Index = () => {
     });
   }, []);
 
+  const handleFieldChange = useCallback((fieldId: string, value: any) => {
+    setFormState((prev) => ({
+      ...prev,
+      [fieldId]: {
+        value,
+        source: "user_input",
+        timestamp: new Date().toISOString(),
+      },
+    }));
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <IFRCHeader />
@@ -78,10 +89,10 @@ const Index = () => {
 
         {/* Step content */}
         {activeStep === 0 && (
-          <EssentialInformationForm onBack={goBack} onContinue={goNext} />
+          <EssentialInformationForm onBack={goBack} onContinue={goNext} formState={formState} onFieldChange={handleFieldChange} />
         )}
         {activeStep === 1 && (
-          <EventDetailForm onBack={goBack} onContinue={goNext} />
+          <EventDetailForm onBack={goBack} onContinue={goNext} formState={formState} onFieldChange={handleFieldChange} />
         )}
         {activeStep === 2 && (
           <ActionsNeedsForm onBack={goBack} onContinue={goNext} />
@@ -109,13 +120,12 @@ const Index = () => {
 
       <IFRCFooter />
 
-      {chatOpen && (
-        <DREFAssistChat
-          onClose={() => setChatOpen(false)}
-          formState={formState}
-          onFieldUpdates={handleFieldUpdates}
-        />
-      )}
+      <DREFAssistChat
+        onClose={() => setChatOpen(false)}
+        formState={formState}
+        onFieldUpdates={handleFieldUpdates}
+        isOpen={chatOpen}
+      />
     </div>
   );
 };

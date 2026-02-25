@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
-import { Bot, Send, X, Save } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
+import { Bot, Send, X, Save, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,6 +11,7 @@ import {
     type FieldUpdate,
     type ConflictInfo,
 } from "@/lib/api";
+import { getFieldLabel } from "@/lib/fieldLabels";
 
 interface FileAttachment {
     name: string;
@@ -29,13 +31,35 @@ interface Message {
     conflicts?: ConflictInfo[];
 }
 
+type FieldUpdateStatus = "pending" | "accepted" | "rejected";
+
+interface TrackedFieldUpdate {
+    update: FieldUpdate;
+    status: FieldUpdateStatus;
+}
+
+type ConflictResolution = "pending" | "keep_existing" | "use_new";
+
+interface TrackedConflict {
+    conflict: ConflictInfo;
+    resolution: ConflictResolution;
+}
+
 interface DREFAssistChatProps {
     onClose: () => void;
     formState: EnrichedFormState;
     onFieldUpdates?: (updates: FieldUpdate[]) => void;
+    isOpen: boolean;
 }
 
-const DREFAssistChat = ({ onClose, formState, onFieldUpdates }: DREFAssistChatProps) => {
+function formatDisplayValue(value: any): string {
+    if (value === true) return "Yes";
+    if (value === false) return "No";
+    if (value == null) return "";
+    return String(value);
+}
+
+const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen }: DREFAssistChatProps) => {
     const [messages, setMessages] = useState<Message[]>([
         {
             id: "welcome",
@@ -49,6 +73,14 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates }: DREFAssistChatPr
     const [isTyping, setIsTyping] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [updateTracker, setUpdateTracker] = useState<Record<string, Record<string, TrackedFieldUpdate>>>({});
+    const [conflictTracker, setConflictTracker] = useState<Record<string, Record<string, TrackedConflict>>>({});
+
+    // Refs to read latest state without stale closures
+    const updateTrackerRef = useRef(updateTracker);
+    updateTrackerRef.current = updateTracker;
+    const conflictTrackerRef = useRef(conflictTracker);
+    conflictTrackerRef.current = conflictTracker;
 
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -67,6 +99,203 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates }: DREFAssistChatPr
             createdUrlsRef.current.clear();
         };
     }, []);
+
+    // Build effective form state: accepted formState + all pending suggestions
+    // This way the LLM sees what it already suggested and doesn't re-ask
+    const buildEffectiveFormState = useCallback((): EnrichedFormState => {
+        const effective: EnrichedFormState = { ...formState };
+
+        // Merge in pending field updates so the LLM knows about its own suggestions
+        for (const msgUpdates of Object.values(updateTrackerRef.current)) {
+            for (const tracked of Object.values(msgUpdates)) {
+                if (tracked.status === "pending") {
+                    effective[tracked.update.field_id] = {
+                        value: tracked.update.value,
+                        source: tracked.update.source,
+                        timestamp: tracked.update.timestamp,
+                    };
+                }
+            }
+        }
+
+        // Merge in pending conflict new_values (the LLM suggested these)
+        for (const msgConflicts of Object.values(conflictTrackerRef.current)) {
+            for (const tracked of Object.values(msgConflicts)) {
+                if (tracked.resolution === "pending") {
+                    effective[tracked.conflict.field_name] = {
+                        value: tracked.conflict.new_value.value,
+                        source: tracked.conflict.new_value.source,
+                        timestamp: tracked.conflict.new_value.timestamp,
+                    };
+                }
+            }
+        }
+
+        return effective;
+    }, [formState]);
+
+    // --- Accept / Reject field updates (no side effects in state updaters) ---
+
+    const acceptUpdate = useCallback((messageId: string, fieldId: string) => {
+        const tracked = updateTrackerRef.current[messageId]?.[fieldId];
+        if (!tracked || tracked.status !== "pending") return;
+
+        // Side effect: apply to form
+        onFieldUpdates?.([tracked.update]);
+
+        // State update: mark as accepted
+        setUpdateTracker((prev) => ({
+            ...prev,
+            [messageId]: {
+                ...prev[messageId],
+                [fieldId]: { ...prev[messageId][fieldId], status: "accepted" as const },
+            },
+        }));
+    }, [onFieldUpdates]);
+
+    const rejectUpdate = useCallback((messageId: string, fieldId: string) => {
+        setUpdateTracker((prev) => {
+            const msgUpdates = prev[messageId];
+            if (!msgUpdates?.[fieldId] || msgUpdates[fieldId].status !== "pending") return prev;
+            return {
+                ...prev,
+                [messageId]: {
+                    ...msgUpdates,
+                    [fieldId]: { ...msgUpdates[fieldId], status: "rejected" as const },
+                },
+            };
+        });
+    }, []);
+
+    const acceptAllForMessage = useCallback((messageId: string) => {
+        const msgUpdates = updateTrackerRef.current[messageId];
+        if (!msgUpdates) return;
+
+        const pending: FieldUpdate[] = [];
+        for (const tracked of Object.values(msgUpdates)) {
+            if (tracked.status === "pending") pending.push(tracked.update);
+        }
+
+        if (pending.length > 0) onFieldUpdates?.(pending);
+
+        setUpdateTracker((prev) => {
+            const updated = { ...prev[messageId] };
+            for (const fieldId of Object.keys(updated)) {
+                if (updated[fieldId].status === "pending") {
+                    updated[fieldId] = { ...updated[fieldId], status: "accepted" };
+                }
+            }
+            return { ...prev, [messageId]: updated };
+        });
+    }, [onFieldUpdates]);
+
+    const rejectAllForMessage = useCallback((messageId: string) => {
+        setUpdateTracker((prev) => {
+            const msgUpdates = prev[messageId];
+            if (!msgUpdates) return prev;
+            const updated = { ...msgUpdates };
+            for (const fieldId of Object.keys(updated)) {
+                if (updated[fieldId].status === "pending") {
+                    updated[fieldId] = { ...updated[fieldId], status: "rejected" };
+                }
+            }
+            return { ...prev, [messageId]: updated };
+        });
+    }, []);
+
+    // Auto-accept all pending updates across all messages
+    const autoAcceptAllPending = useCallback(() => {
+        const tracker = updateTrackerRef.current;
+        const allPending: FieldUpdate[] = [];
+
+        for (const msgUpdates of Object.values(tracker)) {
+            for (const tracked of Object.values(msgUpdates)) {
+                if (tracked.status === "pending") allPending.push(tracked.update);
+            }
+        }
+
+        if (allPending.length > 0) onFieldUpdates?.(allPending);
+
+        setUpdateTracker((prev) => {
+            const next = { ...prev };
+            for (const [msgId, msgUpdates] of Object.entries(next)) {
+                let changed = false;
+                const updated = { ...msgUpdates };
+                for (const fieldId of Object.keys(updated)) {
+                    if (updated[fieldId].status === "pending") {
+                        updated[fieldId] = { ...updated[fieldId], status: "accepted" };
+                        changed = true;
+                    }
+                }
+                if (changed) next[msgId] = updated;
+            }
+            return next;
+        });
+    }, [onFieldUpdates]);
+
+    // --- Conflict resolution (no side effects in state updaters) ---
+
+    const resolveConflict = useCallback((messageId: string, conflictId: string, resolution: "keep_existing" | "use_new") => {
+        const tracked = conflictTrackerRef.current[messageId]?.[conflictId];
+        if (!tracked || tracked.resolution !== "pending") return;
+
+        if (resolution === "use_new") {
+            const c = tracked.conflict;
+            onFieldUpdates?.([{
+                field_id: c.field_name,
+                value: c.new_value.value,
+                source: c.new_value.source,
+                timestamp: c.new_value.timestamp,
+            }]);
+        }
+
+        setConflictTracker((prev) => ({
+            ...prev,
+            [messageId]: {
+                ...prev[messageId],
+                [conflictId]: { ...prev[messageId][conflictId], resolution },
+            },
+        }));
+    }, [onFieldUpdates]);
+
+    const autoResolveAllConflicts = useCallback(() => {
+        const tracker = conflictTrackerRef.current;
+        const allNew: FieldUpdate[] = [];
+
+        for (const msgConflicts of Object.values(tracker)) {
+            for (const tracked of Object.values(msgConflicts)) {
+                if (tracked.resolution === "pending") {
+                    const c = tracked.conflict;
+                    allNew.push({
+                        field_id: c.field_name,
+                        value: c.new_value.value,
+                        source: c.new_value.source,
+                        timestamp: c.new_value.timestamp,
+                    });
+                }
+            }
+        }
+
+        if (allNew.length > 0) onFieldUpdates?.(allNew);
+
+        setConflictTracker((prev) => {
+            const next = { ...prev };
+            for (const [msgId, msgConflicts] of Object.entries(next)) {
+                let changed = false;
+                const updated = { ...msgConflicts };
+                for (const cId of Object.keys(updated)) {
+                    if (updated[cId].resolution === "pending") {
+                        updated[cId] = { ...updated[cId], resolution: "use_new" };
+                        changed = true;
+                    }
+                }
+                if (changed) next[msgId] = updated;
+            }
+            return next;
+        });
+    }, [onFieldUpdates]);
+
+    // --- File handling ---
 
     const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0] ?? null;
@@ -103,9 +332,15 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates }: DREFAssistChatPr
             }));
     };
 
+    // --- Send message ---
+
     const sendMessage = async () => {
         const text = input.trim();
         if (!text && !selectedFile) return;
+
+        // Auto-accept all pending changes and resolve conflicts before sending
+        autoAcceptAllPending();
+        autoResolveAllConflicts();
 
         const userMsg: Message = {
             id: crypto.randomUUID(),
@@ -135,26 +370,39 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates }: DREFAssistChatPr
         setPreviewUrl(null);
 
         try {
+            // Send effective form state (includes pending suggestions) so
+            // the LLM knows what it already suggested and doesn't re-ask
+            const effectiveFormState = buildEffectiveFormState();
+
             const response = await sendChatMessage(
                 text || `Please analyze the attached file: ${filesToSend?.[0]?.name}`,
-                formState,
+                effectiveFormState,
                 buildConversationHistory(),
                 filesToSend,
             );
 
+            const msgId = crypto.randomUUID();
+
+            // Build reply with natural conflict acknowledgment
             let replyContent = response.reply;
 
-            if (response.conflicts && response.conflicts.length > 0) {
-                replyContent += "\n\n---\n";
-                for (const conflict of response.conflicts) {
-                    replyContent += `\nConflict: ${conflict.field_label || conflict.field_name}\n`;
-                    replyContent += `- Option 1: ${conflict.existing_value.value} (from ${conflict.existing_value.source})\n`;
-                    replyContent += `- Option 2: ${conflict.new_value.value} (from ${conflict.new_value.source})\n`;
+            const hasUpdates = response.field_updates.length > 0;
+            const hasConflicts = response.conflicts && response.conflicts.length > 0;
+
+            if (hasConflicts) {
+                const conflictFields = response.conflicts
+                    .map((c: ConflictInfo) => c.field_label || getFieldLabel(c.field_name))
+                    .join(", ");
+
+                if (hasUpdates) {
+                    replyContent += `\n\nI've also noticed conflicting information for **${conflictFields}**. Please review below and choose which values to keep.`;
+                } else {
+                    replyContent += `\n\nI noticed conflicting information for **${conflictFields}**. Please review below and choose which values to keep.`;
                 }
             }
 
             const assistantMsg: Message = {
-                id: crypto.randomUUID(),
+                id: msgId,
                 role: "assistant",
                 content: replyContent,
                 timestamp: new Date(),
@@ -164,8 +412,22 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates }: DREFAssistChatPr
 
             setMessages((prev) => [...prev, assistantMsg]);
 
-            if (response.field_updates.length > 0 && onFieldUpdates) {
-                onFieldUpdates(response.field_updates);
+            // Store field updates as pending — NOT auto-applied
+            if (response.field_updates.length > 0) {
+                const tracked: Record<string, TrackedFieldUpdate> = {};
+                for (const update of response.field_updates) {
+                    tracked[update.field_id] = { update, status: "pending" };
+                }
+                setUpdateTracker((prev) => ({ ...prev, [msgId]: tracked }));
+            }
+
+            // Store conflicts as pending for interactive resolution
+            if (response.conflicts && response.conflicts.length > 0) {
+                const tracked: Record<string, TrackedConflict> = {};
+                for (const conflict of response.conflicts) {
+                    tracked[conflict.conflict_id] = { conflict, resolution: "pending" };
+                }
+                setConflictTracker((prev) => ({ ...prev, [msgId]: tracked }));
             }
         } catch (error) {
             const errorMsg: Message = {
@@ -193,8 +455,201 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates }: DREFAssistChatPr
         }
     };
 
+    // --- Render cards ---
+
+    const renderFieldUpdatesCard = (msg: Message) => {
+        if (!msg.fieldUpdates || msg.fieldUpdates.length === 0) return null;
+
+        const msgUpdates = updateTracker[msg.id];
+
+        // Brief flash before tracker populates — show pending badge, NOT the old "Updated" badge
+        if (!msgUpdates) {
+            return (
+                <div className="mt-2 rounded border border-border bg-card text-foreground text-xs px-2 py-1.5">
+                    {msg.fieldUpdates.length} suggested change{msg.fieldUpdates.length !== 1 ? "s" : ""} loading...
+                </div>
+            );
+        }
+
+        const entries = Object.entries(msgUpdates);
+        const hasPending = entries.some(([, t]) => t.status === "pending");
+        const pendingCount = entries.filter(([, t]) => t.status === "pending").length;
+
+        return (
+            <div className="mt-2 rounded border border-border bg-card text-foreground text-xs overflow-hidden">
+                <div className="flex items-center justify-between px-2 py-1.5 bg-muted/50 border-b border-border">
+                    <span className="font-medium">
+                        {hasPending
+                            ? `${pendingCount} suggested change${pendingCount !== 1 ? "s" : ""}`
+                            : `${entries.length} change${entries.length !== 1 ? "s" : ""} resolved`
+                        }
+                    </span>
+                    {hasPending && (
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => acceptAllForMessage(msg.id)}
+                                className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                                title="Accept all"
+                            >
+                                <Check className="h-3 w-3" />
+                                <span>All</span>
+                            </button>
+                            <button
+                                onClick={() => rejectAllForMessage(msg.id)}
+                                className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                title="Reject all"
+                            >
+                                <X className="h-3 w-3" />
+                                <span>All</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                <div className="divide-y divide-border">
+                    {entries.map(([fieldId, tracked]) => (
+                        <div
+                            key={fieldId}
+                            className={`flex items-center justify-between px-2 py-1.5 gap-2 ${
+                                tracked.status === "rejected" ? "opacity-50" : ""
+                            }`}
+                        >
+                            <div className="flex-1 min-w-0">
+                                <span className="font-medium">{getFieldLabel(fieldId)}: </span>
+                                <span
+                                    className={
+                                        tracked.status === "rejected"
+                                            ? "line-through text-muted-foreground"
+                                            : tracked.status === "accepted"
+                                            ? "text-green-700 dark:text-green-400"
+                                            : ""
+                                    }
+                                >
+                                    {formatDisplayValue(tracked.update.value)}
+                                </span>
+                            </div>
+
+                            {tracked.status === "pending" ? (
+                                <div className="flex items-center gap-0.5 shrink-0">
+                                    <button
+                                        onClick={() => acceptUpdate(msg.id, fieldId)}
+                                        className="rounded p-0.5 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                                        title="Accept"
+                                    >
+                                        <Check className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                        onClick={() => rejectUpdate(msg.id, fieldId)}
+                                        className="rounded p-0.5 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                        title="Reject"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <span className="shrink-0">
+                                    {tracked.status === "accepted" ? (
+                                        <Check className="h-3.5 w-3.5 text-green-700 dark:text-green-400" />
+                                    ) : (
+                                        <X className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                                    )}
+                                </span>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    const renderConflictsCard = (msg: Message) => {
+        if (!msg.conflicts || msg.conflicts.length === 0) return null;
+
+        const msgConflicts = conflictTracker[msg.id];
+        if (!msgConflicts) return null;
+
+        const entries = Object.entries(msgConflicts);
+        const hasPending = entries.some(([, t]) => t.resolution === "pending");
+        const pendingCount = entries.filter(([, t]) => t.resolution === "pending").length;
+
+        return (
+            <div className="mt-2 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 text-foreground text-xs overflow-hidden">
+                <div className="flex items-center justify-between px-2 py-1.5 bg-amber-100/50 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800">
+                    <span className="font-medium text-amber-800 dark:text-amber-300">
+                        {hasPending
+                            ? `${pendingCount} conflict${pendingCount !== 1 ? "s" : ""} to resolve`
+                            : `${entries.length} conflict${entries.length !== 1 ? "s" : ""} resolved`
+                        }
+                    </span>
+                </div>
+
+                <div className="divide-y divide-amber-200 dark:divide-amber-800">
+                    {entries.map(([conflictId, tracked]) => {
+                        const c = tracked.conflict;
+                        const label = c.field_label || getFieldLabel(c.field_name);
+                        const resolved = tracked.resolution !== "pending";
+
+                        return (
+                            <div key={conflictId} className={`px-2 py-2 ${resolved ? "opacity-60" : ""}`}>
+                                <div className="font-medium mb-1">{label}</div>
+
+                                <div className="flex items-center justify-between gap-1 mb-1">
+                                    <span className={
+                                        tracked.resolution === "keep_existing"
+                                            ? "text-green-700 dark:text-green-400"
+                                            : tracked.resolution === "use_new"
+                                            ? "line-through text-muted-foreground"
+                                            : ""
+                                    }>
+                                        {formatDisplayValue(c.existing_value.value)}
+                                        <span className="text-muted-foreground ml-1">({c.existing_value.source})</span>
+                                    </span>
+                                    {!resolved && (
+                                        <button
+                                            onClick={() => resolveConflict(msg.id, conflictId, "keep_existing")}
+                                            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium border border-border hover:bg-muted transition-colors"
+                                        >
+                                            Keep
+                                        </button>
+                                    )}
+                                    {tracked.resolution === "keep_existing" && (
+                                        <Check className="h-3.5 w-3.5 shrink-0 text-green-700 dark:text-green-400" />
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-between gap-1">
+                                    <span className={
+                                        tracked.resolution === "use_new"
+                                            ? "text-green-700 dark:text-green-400"
+                                            : tracked.resolution === "keep_existing"
+                                            ? "line-through text-muted-foreground"
+                                            : ""
+                                    }>
+                                        {formatDisplayValue(c.new_value.value)}
+                                        <span className="text-muted-foreground ml-1">({c.new_value.source})</span>
+                                    </span>
+                                    {!resolved && (
+                                        <button
+                                            onClick={() => resolveConflict(msg.id, conflictId, "use_new")}
+                                            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium border border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+                                        >
+                                            Use
+                                        </button>
+                                    )}
+                                    {tracked.resolution === "use_new" && (
+                                        <Check className="h-3.5 w-3.5 shrink-0 text-green-700 dark:text-green-400" />
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
     return (
-        <div className="fixed bottom-20 right-6 z-50 flex h-[520px] w-[380px] flex-col rounded-xl border border-border bg-card shadow-2xl">
+        <div className={`fixed bottom-20 right-6 z-50 flex h-[520px] w-[380px] flex-col rounded-xl border border-border bg-card shadow-2xl ${isOpen ? "" : "hidden"}`}>
             {/* Header */}
             <div className="flex items-center justify-between rounded-t-xl bg-primary px-4 py-3">
                 <div className="flex items-center gap-2 text-primary-foreground">
@@ -226,7 +681,9 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates }: DREFAssistChatPr
                                         : "bg-muted text-foreground"
                                 }`}
                             >
-                                <div className="break-words whitespace-pre-wrap">{msg.content}</div>
+                                <div className="break-words prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-1.5">
+                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                </div>
 
                                 {msg.fileAttachment && (
                                     <div className="mt-2">
@@ -250,11 +707,8 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates }: DREFAssistChatPr
                                     </div>
                                 )}
 
-                                {msg.fieldUpdates && msg.fieldUpdates.length > 0 && (
-                                    <div className="mt-2 rounded bg-green-100 dark:bg-green-900/30 px-2 py-1 text-xs text-green-800 dark:text-green-200">
-                                        Updated {msg.fieldUpdates.length} field(s)
-                                    </div>
-                                )}
+                                {renderFieldUpdatesCard(msg)}
+                                {renderConflictsCard(msg)}
 
                                 <button
                                     onClick={() => toggleSave(msg.id)}
