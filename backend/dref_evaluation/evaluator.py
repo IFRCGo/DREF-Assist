@@ -66,7 +66,7 @@ class RubricLoader:
     def _load_rubric(self):
         """Load the rubric from the JSON file."""
         rubric_path = Path(__file__).parent / 'evaluation_rubric.json'
-        with open(rubric_path, 'r', encoding='utf-8') as f:
+        with open(rubric_path, 'r', encoding='utf-8-sig') as f:
             self._rubric = json.load(f)
 
     @property
