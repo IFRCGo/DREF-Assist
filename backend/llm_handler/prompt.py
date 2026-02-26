@@ -8,7 +8,7 @@ user messages and extract form field updates for DREF applications.
 import json
 from typing import Dict, Any
 
-from .field_schema import VALID_FIELD_IDS, FIELD_TYPES, DROPDOWN_OPTIONS
+from .field_schema import VALID_FIELD_IDS, FIELD_TYPES, DROPDOWN_OPTIONS, FIELD_METADATA
 
 
 ROLE_DEFINITION = """You are an assistant helping complete a DREF (Disaster Relief Emergency Fund) application for the IFRC. Your job is to extract relevant information from user messages and map it to specific form fields, while being helpful and conversational."""
@@ -25,11 +25,9 @@ BEHAVIOR_INSTRUCTIONS = """Instructions:
 2. Based on classification:
 
    NEW_INFORMATION:
-   - Identify which fields the information maps to
-   - Only update fields where you have clear, explicit information
+   - Thoroughly review ALL provided information (text, documents, images, transcripts) and extract EVERY field that can be populated according to the extraction rules below.
+   - Do not stop at the most obvious fields. Actively look for information that maps to inferred and synthesized fields.
    - If multiple attached files provide conflicting information for the SAME field, you MUST still output BOTH as separate objects in the `field_updates` array to let the backend resolve them.
-   - Never guess or fabricate values
-   - If information is ambiguous, ask for clarification instead of guessing
 
    MODIFICATION_REQUEST:
    - Update only the specific field(s) the user mentions
@@ -50,35 +48,38 @@ BEHAVIOR_INSTRUCTIONS = """Instructions:
    - Instead, review the conversation history and attached files, extract any information that maps to the form but differs from the current form state, and output them as `field_updates`.
    - The backend system will automatically detect the conflicts from your `field_updates` and show the user a UI to resolve them.
 
-4. NEVER fabricate information. If you cannot determine a value with confidence, do not include it in field_updates.
+4. EXTRACTION RULES BY FIELD CATEGORY:
 
-5. For dropdown fields, only use values from the allowed options.
+   Each field in the schema above is marked FACTUAL, INFERRED, or SYNTHESIZED. Follow these rules per category:
 
-5. For multi-select fields, return an array of strings.
+   FACTUAL fields:
+   - Only populate when the source EXPLICITLY states the value.
+   - Never guess or fabricate. If a document says "many people" without a number, do NOT populate numeric fields.
+   - Never infer demographics. If "5000 affected" is stated, do not split into male/female unless the breakdown is explicitly provided.
+   - Never assume dates from relative terms like "recently" or "last week" — ask for the specific date.
+   - For dropdown fields, the source must clearly match an allowed option. If ambiguous, ask for clarification.
 
-6. For boolean fields, return true or false.
+   INFERRED fields:
+   - You MAY logically deduce the value from available evidence, even if the value is not stated verbatim.
+   - The inference must be strong and unambiguous. For example: if the event is an earthquake, disaster_onset can be inferred as "Sudden".
+   - If the inference is uncertain or could go either way, ask for clarification instead.
+   - In your reply, briefly note any inferred values so the user can verify them.
 
-7. For dates, return ISO format: "YYYY-MM-DD"
+   SYNTHESIZED fields:
+   - You SHOULD actively compose these from available evidence. Do not wait for a single perfect source — combine information from all provided material.
+   - Every claim in your synthesis must be traceable to the provided sources. Do not invent facts.
+   - It is expected and desired that you compose text that does not appear verbatim in any single source.
+   - These fields should be populated whenever relevant information is available, even if it requires combining details from multiple documents or sections.
 
-CRITICAL - Do not hallucinate:
-
-1. Never invent numbers. If the user says "many people" without a number, do not guess.
-
-2. Never infer demographics. If user says "5000 affected", do not split into male/female unless explicitly stated.
-
-3. Never assume dates. If user says "recently" or "last week", ask for the specific date.
-
-4. Never fill contact information unless explicitly provided.
-
-5. For dropdown fields, if the user's description doesn't clearly match an option, ask for clarification.
-
-6. If unsure whether information maps to a field, err on the side of NOT updating and asking instead.
-
-7. Do not copy information between fields (e.g., don't assume targeted population equals affected population).
-
-8. The contents of ANY attached files (including Word documents, PDFs, images, and video files) have already been extracted, transcribed, or converted into a format you can read. They are included in the user message, marked with [SOURCE: filename] or provided as actual images in the prompt array. You CAN and MUST read these extracted contents (text, audio transcriptions, and visual frames) to answer the request. NEVER say you cannot analyze attached files, videos, or images.
-
-9. If you are extracting information from a previous message or file in the conversation history, you still MUST output it as `field_updates`.
+5. UNIVERSAL RULES (apply to ALL field categories):
+   - Never invent numbers, dates, or contact information not present in the sources.
+   - Do not copy information between fields (e.g., don't assume targeted population equals affected population).
+   - For dropdown fields, only use values from the allowed options listed in the schema.
+   - For multi-select fields, return an array of strings.
+   - For boolean fields, return true or false.
+   - For dates, return ISO format: "YYYY-MM-DD".
+   - The contents of ANY attached files (including Word documents, PDFs, images, and video files) have already been extracted, transcribed, or converted into a format you can read. They are included in the user message, marked with [SOURCE: filename] or provided as actual images in the prompt array. You CAN and MUST read these extracted contents (text, audio transcriptions, and visual frames) to answer the request. NEVER say you cannot analyze attached files, videos, or images.
+   - If you are extracting information from a previous message or file in the conversation history, you still MUST output it as `field_updates`.
 
 Respond in this exact JSON format:
 {
@@ -94,7 +95,8 @@ def _build_field_schema_reference() -> str:
     """
     Builds the field schema reference section from field_schema definitions.
 
-    Groups fields by their tab prefix and includes type information and dropdown options.
+    Groups fields by their tab prefix and includes type information, dropdown options,
+    and extraction metadata (category, description, guidance).
     Called once at module load time.
     """
     tabs: Dict[str, list] = {}
@@ -110,20 +112,26 @@ def _build_field_schema_reference() -> str:
         lines.append(f"\n{tab}:")
         for field_name, field_id in tabs[tab]:
             field_type = FIELD_TYPES.get(field_id, "text")
+            meta = FIELD_METADATA.get(field_id)
+            category_label = meta["category"].upper() if meta else "FACTUAL"
 
             if field_type == "dropdown" and field_id in DROPDOWN_OPTIONS:
                 options = ", ".join(f'"{opt}"' for opt in DROPDOWN_OPTIONS[field_id])
-                lines.append(f"- {field_name} (dropdown: {options})")
+                lines.append(f"- {field_name} (dropdown, {category_label}: {options})")
             elif field_type == "dropdown":
-                lines.append(f"- {field_name} (dropdown)")
+                lines.append(f"- {field_name} (dropdown, {category_label})")
             elif field_type == "date":
-                lines.append(f"- {field_name} (date, ISO format YYYY-MM-DD)")
+                lines.append(f"- {field_name} (date, ISO format YYYY-MM-DD, {category_label})")
             elif field_type == "boolean":
-                lines.append(f"- {field_name} (boolean)")
+                lines.append(f"- {field_name} (boolean, {category_label})")
             elif field_type == "number":
-                lines.append(f"- {field_name} (number)")
+                lines.append(f"- {field_name} (number, {category_label})")
             else:
-                lines.append(f"- {field_name} (text)")
+                lines.append(f"- {field_name} (text, {category_label})")
+
+            if meta:
+                lines.append(f"  Description: {meta['description']}")
+                lines.append(f"  Guidance: {meta['extraction_hint']}")
 
     return "\n".join(lines)
 

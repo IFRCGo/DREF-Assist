@@ -95,13 +95,13 @@ const Index = () => {
           <EventDetailForm onBack={goBack} onContinue={goNext} formState={formState} onFieldChange={handleFieldChange} />
         )}
         {activeStep === 2 && (
-          <ActionsNeedsForm onBack={goBack} onContinue={goNext} />
+          <ActionsNeedsForm onBack={goBack} onContinue={goNext} formState={formState} onFieldChange={handleFieldChange} />
         )}
         {activeStep === 3 && (
-          <OperationForm onBack={goBack} onContinue={goNext} />
+          <OperationForm onBack={goBack} onContinue={goNext} formState={formState} onFieldChange={handleFieldChange} />
         )}
         {activeStep === 4 && (
-          <TimeframesContactsForm onBack={goBack} onContinue={goNext} />
+          <TimeframesContactsForm onBack={goBack} onContinue={goNext} formState={formState} onFieldChange={handleFieldChange} />
         )}
         {activeStep >= 5 && (
           <div className="py-12 text-center text-muted-foreground">

@@ -9,7 +9,7 @@ from llm_handler.prompt import (
     BEHAVIOR_INSTRUCTIONS,
     FIELD_SCHEMA_REFERENCE,
 )
-from llm_handler.field_schema import VALID_FIELD_IDS, DROPDOWN_OPTIONS
+from llm_handler.field_schema import VALID_FIELD_IDS, DROPDOWN_OPTIONS, FIELD_METADATA
 
 
 class TestBuildSystemPrompt:
@@ -58,10 +58,10 @@ class TestBuildSystemPrompt:
     def test_field_types_documented(self):
         prompt = build_system_prompt({})
 
-        assert "(boolean)" in prompt
-        assert "(number)" in prompt
-        assert "(date, ISO format YYYY-MM-DD)" in prompt
-        assert "(text)" in prompt
+        assert "(boolean" in prompt
+        assert "(number" in prompt
+        assert "(date, ISO format YYYY-MM-DD" in prompt
+        assert "(text" in prompt
         assert "(dropdown" in prompt
 
     def test_contains_classification_instructions(self):
@@ -73,14 +73,53 @@ class TestBuildSystemPrompt:
         assert "QUESTION" in prompt
         assert "OFF_TOPIC" in prompt
 
-    def test_contains_anti_hallucination_rules(self):
+    def test_contains_tiered_extraction_rules(self):
         prompt = build_system_prompt({})
 
-        assert "CRITICAL" in prompt
-        assert "hallucinate" in prompt.lower()
-        assert "Never invent numbers" in prompt
+        assert "FACTUAL" in prompt
+        assert "INFERRED" in prompt
+        assert "SYNTHESIZED" in prompt
+        assert "EXTRACTION RULES BY FIELD CATEGORY" in prompt
+
+    def test_factual_rules_prevent_fabrication(self):
+        prompt = build_system_prompt({})
+
+        assert "Never guess or fabricate" in prompt
         assert "Never infer demographics" in prompt
         assert "Never assume dates" in prompt
+
+    def test_inferred_rules_allow_deduction(self):
+        prompt = build_system_prompt({})
+
+        assert "MAY logically deduce" in prompt
+
+    def test_synthesized_rules_encourage_composition(self):
+        prompt = build_system_prompt({})
+
+        assert "SHOULD actively compose" in prompt
+
+    def test_field_descriptions_in_prompt(self):
+        prompt = build_system_prompt({})
+
+        for field_id, meta in FIELD_METADATA.items():
+            assert meta["description"] in prompt, (
+                f"Description for {field_id} not found in prompt"
+            )
+
+    def test_field_extraction_hints_in_prompt(self):
+        prompt = build_system_prompt({})
+
+        for field_id, meta in FIELD_METADATA.items():
+            assert meta["extraction_hint"] in prompt, (
+                f"Extraction hint for {field_id} not found in prompt"
+            )
+
+    def test_field_categories_in_schema_reference(self):
+        for field_id, meta in FIELD_METADATA.items():
+            category_upper = meta["category"].upper()
+            assert category_upper in FIELD_SCHEMA_REFERENCE, (
+                f"Category {category_upper} for {field_id} not in schema reference"
+            )
 
     def test_contains_json_format_instructions(self):
         prompt = build_system_prompt({})
@@ -138,6 +177,50 @@ class TestFieldSchemaReference:
                 assert f'"{option}"' in FIELD_SCHEMA_REFERENCE, (
                     f"Option {option} for {field_id} not in schema"
                 )
+
+
+class TestFieldMetadata:
+    """Tests for field metadata completeness and validity."""
+
+    VALID_CATEGORIES = {"factual", "inferred", "synthesized"}
+    REQUIRED_KEYS = {"category", "description", "extraction_hint"}
+
+    def test_every_field_has_metadata(self):
+        for field_id in VALID_FIELD_IDS:
+            assert field_id in FIELD_METADATA, (
+                f"Field {field_id} missing from FIELD_METADATA"
+            )
+
+    def test_no_extra_fields_in_metadata(self):
+        for field_id in FIELD_METADATA:
+            assert field_id in VALID_FIELD_IDS, (
+                f"FIELD_METADATA has unknown field {field_id}"
+            )
+
+    def test_all_required_keys_present(self):
+        for field_id, meta in FIELD_METADATA.items():
+            for key in self.REQUIRED_KEYS:
+                assert key in meta, (
+                    f"Field {field_id} missing key '{key}' in FIELD_METADATA"
+                )
+
+    def test_categories_are_valid(self):
+        for field_id, meta in FIELD_METADATA.items():
+            assert meta["category"] in self.VALID_CATEGORIES, (
+                f"Field {field_id} has invalid category '{meta['category']}'"
+            )
+
+    def test_descriptions_are_nonempty_strings(self):
+        for field_id, meta in FIELD_METADATA.items():
+            assert isinstance(meta["description"], str) and len(meta["description"]) > 10, (
+                f"Field {field_id} has empty or too-short description"
+            )
+
+    def test_extraction_hints_are_nonempty_strings(self):
+        for field_id, meta in FIELD_METADATA.items():
+            assert isinstance(meta["extraction_hint"], str) and len(meta["extraction_hint"]) > 10, (
+                f"Field {field_id} has empty or too-short extraction_hint"
+            )
 
 
 class TestPromptConstants:
