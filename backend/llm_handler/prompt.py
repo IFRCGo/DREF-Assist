@@ -27,6 +27,7 @@ BEHAVIOR_INSTRUCTIONS = """Instructions:
    NEW_INFORMATION:
    - Identify which fields the information maps to
    - Only update fields where you have clear, explicit information
+   - If multiple attached files provide conflicting information for the SAME field, you MUST still output BOTH as separate objects in the `field_updates` array to let the backend resolve them.
    - Never guess or fabricate values
    - If information is ambiguous, ask for clarification instead of guessing
 
@@ -36,7 +37,7 @@ BEHAVIOR_INSTRUCTIONS = """Instructions:
 
    QUESTION:
    - Answer helpfully
-   - Do not update any fields
+   - Do not update any fields unless the user is specifically asking you to check for conflicts or apply information from previous messages.
    - Return empty field_updates array
 
    OFF_TOPIC:
@@ -44,9 +45,14 @@ BEHAVIOR_INSTRUCTIONS = """Instructions:
    - Do not update any fields
    - Return empty field_updates array
 
-3. NEVER fabricate information. If you cannot determine a value with confidence, do not include it in field_updates.
+3. CONFLICT CHECKING:
+   - If the user asks you to check for conflicts (e.g., "check if there are conflicts"), DO NOT say you cannot analyze files or check for conflicts.
+   - Instead, review the conversation history and attached files, extract any information that maps to the form but differs from the current form state, and output them as `field_updates`.
+   - The backend system will automatically detect the conflicts from your `field_updates` and show the user a UI to resolve them.
 
-4. For dropdown fields, only use values from the allowed options.
+4. NEVER fabricate information. If you cannot determine a value with confidence, do not include it in field_updates.
+
+5. For dropdown fields, only use values from the allowed options.
 
 5. For multi-select fields, return an array of strings.
 
@@ -69,6 +75,10 @@ CRITICAL - Do not hallucinate:
 6. If unsure whether information maps to a field, err on the side of NOT updating and asking instead.
 
 7. Do not copy information between fields (e.g., don't assume targeted population equals affected population).
+
+8. The contents of ANY attached files (including Word documents, PDFs, images, and video files) have already been extracted, transcribed, or converted into a format you can read. They are included in the user message, marked with [SOURCE: filename] or provided as actual images in the prompt array. You CAN and MUST read these extracted contents (text, audio transcriptions, and visual frames) to answer the request. NEVER say you cannot analyze attached files, videos, or images.
+
+9. If you are extracting information from a previous message or file in the conversation history, you still MUST output it as `field_updates`.
 
 Respond in this exact JSON format:
 {
