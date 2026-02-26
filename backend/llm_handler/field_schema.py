@@ -26,6 +26,7 @@ VALID_FIELD_IDS = {
 
     # actions_needs
     "actions_needs.ns_actions_started",
+    "actions_needs.ns_action_types",
     "actions_needs.ifrc_description",
     "actions_needs.participating_ns",
     "actions_needs.icrc_description",
@@ -98,6 +99,7 @@ FIELD_TYPES = {
 
     # actions_needs
     "actions_needs.ns_actions_started": "boolean",
+    "actions_needs.ns_action_types": "multi_select",
     "actions_needs.ifrc_description": "text",
     "actions_needs.participating_ns": "text",
     "actions_needs.icrc_description": "text",
@@ -156,6 +158,25 @@ DROPDOWN_OPTIONS = {
         "Flood", "Earthquake", "Epidemic", "Cyclone", "Drought", "Fire", 
         "Landslide", "Tsunami", "Volcanic Eruption", "Civil Unrest", 
         "Population Movement", "Other"
+    ],
+    "actions_needs.ns_action_types": [
+        "Shelter, Housing And Settlements",
+        "Multi Purpose Cash",
+        "Health",
+        "Water, Sanitation and Hygiene",
+        "Protection, Gender and Inclusion",
+        "Education",
+        "Migration And Displacement",
+        "Risk Reduction, Climate Adaptation And Recovery",
+        "Community Engagement and Accountability",
+        "Environment Sustainability",
+        "Coordination",
+        "National Society Readiness",
+        "Assessment",
+        "Resource Mobilization",
+        "Activation Of Contingency Plans",
+        "National Society EOC",
+        "Other",
     ],
     # Lists of countries and societies would typically be dynamic or much longer.
     # For this implementation, we allow any value validation logic or placeholder
@@ -260,6 +281,11 @@ FIELD_METADATA = {
         "category": "inferred",
         "description": "Whether the National Society has started any response actions.",
         "extraction_hint": "Infer from mentions of National Society activities such as deploying volunteers, distributing relief items, conducting assessments, or activating contingency plans. If any NS response activity is described, set to true.",
+    },
+    "actions_needs.ns_action_types": {
+        "category": "inferred",
+        "description": "The types of response actions the National Society has started or is carrying out. Multi-select from allowed options.",
+        "extraction_hint": "Infer from descriptions of NS activities. Map activities to the closest option(s): relief distribution → 'Shelter, Housing And Settlements' or 'Multi Purpose Cash'; medical teams → 'Health'; water/sanitation → 'Water, Sanitation and Hygiene'; evacuations/search and rescue → 'Assessment'; volunteer mobilization → 'National Society Readiness'. Return as an array of matching option strings.",
     },
     "actions_needs.ifrc_description": {
         "category": "synthesized",
@@ -511,6 +537,17 @@ def validate_field_updates(updates: List[Dict[str, Any]]) -> List[Dict[str, Any]
             if not isinstance(value, (int, float)):
                 continue
         
+        elif field_type == "multi_select":
+            if not isinstance(value, list):
+                continue
+            # Validate each item against allowed options if defined
+            if field_id in DROPDOWN_OPTIONS:
+                allowed = DROPDOWN_OPTIONS[field_id]
+                value = [v for v in value if v in allowed]
+                if not value:
+                    continue
+                update = {**update, "value": value}
+
         elif field_type == "dropdown":
             # Only validate against options if we have them defined
             if field_id in DROPDOWN_OPTIONS:

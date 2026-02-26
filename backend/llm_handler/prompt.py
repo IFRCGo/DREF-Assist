@@ -115,7 +115,10 @@ def _build_field_schema_reference() -> str:
             meta = FIELD_METADATA.get(field_id)
             category_label = meta["category"].upper() if meta else "FACTUAL"
 
-            if field_type == "dropdown" and field_id in DROPDOWN_OPTIONS:
+            if field_type == "multi_select" and field_id in DROPDOWN_OPTIONS:
+                options = ", ".join(f'"{opt}"' for opt in DROPDOWN_OPTIONS[field_id])
+                lines.append(f"- {field_name} (multi-select array, {category_label}: {options})")
+            elif field_type == "dropdown" and field_id in DROPDOWN_OPTIONS:
                 options = ", ".join(f'"{opt}"' for opt in DROPDOWN_OPTIONS[field_id])
                 lines.append(f"- {field_name} (dropdown, {category_label}: {options})")
             elif field_type == "dropdown":

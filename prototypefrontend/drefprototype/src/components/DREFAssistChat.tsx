@@ -50,6 +50,8 @@ interface DREFAssistChatProps {
     formState: EnrichedFormState;
     onFieldUpdates?: (updates: FieldUpdate[]) => void;
     isOpen: boolean;
+    pendingMessage?: string | null;
+    onPendingMessageConsumed?: () => void;
 }
 
 function formatDisplayValue(value: any): string {
@@ -59,7 +61,7 @@ function formatDisplayValue(value: any): string {
     return String(value);
 }
 
-const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen }: DREFAssistChatProps) => {
+const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMessage, onPendingMessageConsumed }: DREFAssistChatProps) => {
     const [messages, setMessages] = useState<Message[]>([
         {
             id: "welcome",
@@ -100,6 +102,15 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen }: DREFAssi
             createdUrlsRef.current.clear();
         };
     }, []);
+
+    // Handle pending message from evaluation panel "Improve with AI" button
+    useEffect(() => {
+        if (pendingMessage && isOpen) {
+            setInput(pendingMessage);
+            onPendingMessageConsumed?.();
+            inputRef.current?.focus();
+        }
+    }, [pendingMessage, isOpen, onPendingMessageConsumed]);
 
     // Build effective form state: accepted formState + all pending suggestions
     // This way the LLM sees what it already suggested and doesn't re-ask

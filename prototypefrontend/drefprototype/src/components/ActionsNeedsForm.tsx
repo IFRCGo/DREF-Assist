@@ -37,22 +37,29 @@ const getField = (formState: EnrichedFormState | undefined, fieldId: string): st
 };
 
 const ActionsNeedsForm = ({ onBack, onContinue, formState, onFieldChange }: ActionsNeedsFormProps) => {
-    const [selectedActions, setSelectedActions] = useState<string[]>([]);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     const field = (id: string) => getField(formState, id);
     const change = (id: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
         onFieldChange?.(id, e.target.value);
 
+    // Read selected actions from formState (persisted as an array)
+    const selectedActions: string[] = (() => {
+        const val = formState?.["actions_needs.ns_action_types"]?.value;
+        return Array.isArray(val) ? val : [];
+    })();
+
     const handleActionSelect = (action: string) => {
         if (!selectedActions.includes(action)) {
-            setSelectedActions([...selectedActions, action]);
+            const updated = [...selectedActions, action];
+            onFieldChange?.("actions_needs.ns_action_types", updated);
         }
         setIsDropdownOpen(false);
     };
 
     const removeAction = (action: string) => {
-        setSelectedActions(selectedActions.filter(a => a !== action));
+        const updated = selectedActions.filter(a => a !== action);
+        onFieldChange?.("actions_needs.ns_action_types", updated);
     };
 
     return (

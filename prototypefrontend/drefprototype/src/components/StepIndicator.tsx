@@ -4,6 +4,7 @@ const stepLabels = [
   "ACTIONS/NEEDS",
   "OPERATION",
   "OPERATIONAL TIMEFRAMES AND CONTACTS",
+  "REVIEW & SUBMIT",
 ];
 
 interface StepIndicatorProps {

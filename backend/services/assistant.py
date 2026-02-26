@@ -48,6 +48,7 @@ FIELD_LABELS = {
     "event_detail.what_happened": "What Happened",
     # actions_needs
     "actions_needs.ns_actions_started": "NS Actions Started",
+    "actions_needs.ns_action_types": "National Society Action Types",
     "actions_needs.ifrc_description": "IFRC Presence/Support",
     "actions_needs.participating_ns": "Participating National Societies",
     "actions_needs.icrc_description": "ICRC Presence/Activities",

@@ -79,7 +79,56 @@ export async function sendChatMessage(
   return response.json();
 }
 
-export async function evaluateDref(formState: EnrichedFormState) {
+// --- Evaluation types ---
+
+export interface CriterionResult {
+  criterion_id: string;
+  field: string;
+  criterion: string;
+  outcome: "accept" | "dont_accept";
+  required: boolean;
+  reasoning: string;
+  improvement_prompt: string;
+  guidance: string;
+}
+
+export interface SectionResult {
+  section_name: string;
+  section_display_name: string;
+  status: "accept" | "needs_revision";
+  criteria_results: Record<string, CriterionResult>;
+  issues: string[];
+}
+
+export interface ImprovementSuggestion {
+  section: string;
+  field: string;
+  criterion: string;
+  priority: number;
+  guidance: string;
+  ready_prompt: string;
+  auto_applicable: boolean;
+}
+
+export interface EvaluationResult {
+  dref_id: number;
+  overall_status: "accepted" | "needs_revision" | "pending";
+  section_results: Record<string, SectionResult>;
+  improvement_suggestions: ImprovementSuggestion[];
+  pass_one_completed: boolean;
+  pass_two_completed: boolean;
+  reference_examples_used: number[];
+}
+
+export interface SectionEvaluationResult extends SectionResult {
+  improvement_suggestions: ImprovementSuggestion[];
+}
+
+// --- Evaluation API functions ---
+
+export async function evaluateDref(
+  formState: EnrichedFormState,
+): Promise<EvaluationResult> {
   const response = await fetch("/api/evaluate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -93,7 +142,10 @@ export async function evaluateDref(formState: EnrichedFormState) {
   return response.json();
 }
 
-export async function evaluateSection(formState: EnrichedFormState, section: string) {
+export async function evaluateSection(
+  formState: EnrichedFormState,
+  section: string,
+): Promise<SectionEvaluationResult> {
   const response = await fetch("/api/evaluate/section", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

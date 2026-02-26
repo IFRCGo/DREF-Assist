@@ -48,6 +48,27 @@ class EvaluationResult:
     reference_examples_used: List[int] = field(default_factory=list)
 
 
+# Rubric fields that use LLM-based quality evaluation (all are type 'text')
+_LLM_EVALUATED_FIELDS: set = {
+    "event_description",
+    "event_scope",
+    "ifrc",
+    "icrc",
+    "partner_national_society",
+    "national_authorities",
+    "identified_gaps",
+    "operation_objective",
+    "response_strategy",
+    "selection_criteria",
+    "people_assisted",
+    "human_resource",
+    "logistic_capacity_of_ns",
+    "safety_concerns",
+    "pmer",
+    "communication",
+}
+
+
 class RubricLoader:
     """Loads and provides access to the evaluation rubric."""
 
@@ -136,6 +157,9 @@ class DrefEvaluator:
         """
         Evaluate a single section of the DREF form.
 
+        Uses hybrid evaluation: LLM for text content quality (when llm_client
+        is provided), rule-based for non-text fields (boolean, integer, date, etc.).
+
         Args:
             section_name: Name of the section to evaluate
             form_state: Current state of the DREF form
@@ -155,13 +179,44 @@ class DrefEvaluator:
         )
 
         criteria = section_config.get('criteria', [])
-        for criterion in criteria:
-            criterion_result = self._evaluate_criterion(criterion, form_state)
-            section_result.criteria_results[criterion['id']] = criterion_result
+        text_criteria_for_llm: List[Dict] = []
 
-            if criterion_result.outcome == 'dont_accept':
-                section_result.issues.append(criterion_result.criterion)
-                if criterion_result.required:
+        for criterion in criteria:
+            field_name = criterion['field']
+
+            # Check conditions first — skip inapplicable criteria
+            condition = criterion.get('condition')
+            if condition and not self._check_condition(condition, form_state):
+                section_result.criteria_results[criterion['id']] = CriterionResult(
+                    criterion_id=criterion['id'],
+                    field=field_name,
+                    criterion=criterion['criterion'],
+                    outcome='accept',
+                    required=criterion.get('required', True),
+                    reasoning="Criterion not applicable based on form conditions",
+                    guidance=criterion.get('guidance', ''),
+                )
+                continue
+
+            # Route: LLM for text fields, rule-based for everything else
+            if self.llm_client and field_name in _LLM_EVALUATED_FIELDS:
+                text_criteria_for_llm.append(criterion)
+            else:
+                criterion_result = self._evaluate_criterion(criterion, form_state)
+                section_result.criteria_results[criterion['id']] = criterion_result
+
+        # Batch LLM evaluation for text criteria
+        if text_criteria_for_llm:
+            llm_results = self._evaluate_text_criteria_with_llm(
+                text_criteria_for_llm, form_state
+            )
+            section_result.criteria_results.update(llm_results)
+
+        # Update section status and issues from all results
+        for cid, cr in section_result.criteria_results.items():
+            if cr.outcome == 'dont_accept':
+                section_result.issues.append(cr.criterion)
+                if cr.required:
                     section_result.status = 'needs_revision'
 
         return section_result
@@ -369,6 +424,153 @@ class DrefEvaluator:
 
         # If we get here, basic validation passed
         return ('accept', f"Field '{field_name}' contains required content")
+
+    def _build_evaluation_prompt(
+        self,
+        text_criteria: List[Dict],
+        form_state: Dict[str, Any],
+    ) -> str:
+        """Build an LLM prompt to evaluate multiple text criteria at once."""
+        items = []
+        for criterion in text_criteria:
+            field_name = criterion["field"]
+            field_value = self._get_field_value(field_name, form_state)
+            items.append({
+                "criterion_id": criterion["id"],
+                "criterion": criterion["criterion"],
+                "guidance": criterion.get("guidance", ""),
+                "field_name": field_name,
+                "field_value": str(field_value) if field_value else "",
+            })
+
+        prompt = (
+            "You are an IFRC DREF (Disaster Relief Emergency Fund) quality evaluator.\n\n"
+            "Evaluate each field below against its criterion. Be strict but fair:\n"
+            '- "accept" if the text adequately addresses the criterion requirements\n'
+            '- "dont_accept" if the text is missing, too vague, incomplete, or does '
+            "not address what the criterion asks for\n\n"
+            "For each criterion, provide:\n"
+            '- outcome: "accept" or "dont_accept"\n'
+            "- reasoning: 1-2 sentence explanation\n"
+            "- improvement_suggestion: If dont_accept, specific guidance on what to "
+            "add/improve. Empty string if accept.\n\n"
+            f"Criteria to evaluate:\n{json.dumps(items, indent=2)}\n\n"
+            "Respond in this exact JSON format:\n"
+            "{\n"
+            '  "evaluations": [\n'
+            "    {\n"
+            '      "criterion_id": "<id>",\n'
+            '      "outcome": "accept" | "dont_accept",\n'
+            '      "reasoning": "...",\n'
+            '      "improvement_suggestion": "..."\n'
+            "    }\n"
+            "  ]\n"
+            "}"
+        )
+        return prompt
+
+    def _evaluate_text_criteria_with_llm(
+        self,
+        text_criteria: List[Dict],
+        form_state: Dict[str, Any],
+    ) -> Dict[str, CriterionResult]:
+        """Batch-evaluate text criteria using LLM. Falls back to rule-based on failure."""
+        results: Dict[str, CriterionResult] = {}
+
+        # Pre-check: skip criteria where the field is empty (no LLM call needed)
+        non_empty_criteria = []
+        for criterion in text_criteria:
+            field_value = self._get_field_value(criterion["field"], form_state)
+            if not field_value or (isinstance(field_value, str) and not field_value.strip()):
+                results[criterion["id"]] = CriterionResult(
+                    criterion_id=criterion["id"],
+                    field=criterion["field"],
+                    criterion=criterion["criterion"],
+                    outcome="dont_accept",
+                    required=criterion.get("required", True),
+                    reasoning=f"Field '{criterion['field']}' is empty",
+                    improvement_prompt=self._generate_criterion_prompt(criterion, None),
+                    guidance=criterion.get("guidance", ""),
+                )
+            else:
+                non_empty_criteria.append(criterion)
+
+        if not non_empty_criteria:
+            return results
+
+        prompt = self._build_evaluation_prompt(non_empty_criteria, form_state)
+
+        try:
+            response = self.llm_client.chat.completions.create(
+                model=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                response_format={"type": "json_object"},
+            )
+            raw = json.loads(response.choices[0].message.content)
+            evaluations = {e["criterion_id"]: e for e in raw.get("evaluations", [])}
+        except Exception:
+            # LLM call failed — fall back to rule-based for all
+            for criterion in non_empty_criteria:
+                field_value = self._get_field_value(criterion["field"], form_state)
+                outcome, reasoning = self._evaluate_field_value(
+                    criterion["field"], field_value, criterion
+                )
+                improvement_prompt = ""
+                if outcome == "dont_accept":
+                    improvement_prompt = self._generate_criterion_prompt(criterion, field_value)
+                results[criterion["id"]] = CriterionResult(
+                    criterion_id=criterion["id"],
+                    field=criterion["field"],
+                    criterion=criterion["criterion"],
+                    outcome=outcome,
+                    required=criterion.get("required", True),
+                    reasoning=reasoning,
+                    improvement_prompt=improvement_prompt,
+                    guidance=criterion.get("guidance", ""),
+                )
+            return results
+
+        # Map LLM results to CriterionResult objects
+        for criterion in non_empty_criteria:
+            cid = criterion["id"]
+            llm_eval = evaluations.get(cid)
+            if llm_eval:
+                outcome = llm_eval["outcome"]
+                improvement_prompt = ""
+                if outcome == "dont_accept":
+                    improvement_prompt = self._generate_criterion_prompt(criterion, None)
+                results[cid] = CriterionResult(
+                    criterion_id=cid,
+                    field=criterion["field"],
+                    criterion=criterion["criterion"],
+                    outcome=outcome,
+                    required=criterion.get("required", True),
+                    reasoning=llm_eval.get("reasoning", ""),
+                    improvement_prompt=improvement_prompt,
+                    guidance=criterion.get("guidance", ""),
+                )
+            else:
+                # LLM didn't return this criterion — fall back to rule-based
+                field_value = self._get_field_value(criterion["field"], form_state)
+                outcome, reasoning = self._evaluate_field_value(
+                    criterion["field"], field_value, criterion
+                )
+                improvement_prompt = ""
+                if outcome == "dont_accept":
+                    improvement_prompt = self._generate_criterion_prompt(criterion, field_value)
+                results[cid] = CriterionResult(
+                    criterion_id=cid,
+                    field=criterion["field"],
+                    criterion=criterion["criterion"],
+                    outcome=outcome,
+                    required=criterion.get("required", True),
+                    reasoning=reasoning,
+                    improvement_prompt=improvement_prompt,
+                    guidance=criterion.get("guidance", ""),
+                )
+
+        return results
 
     def _check_condition(self, condition: str, form_state: Dict[str, Any]) -> bool:
         """
