@@ -28,9 +28,9 @@ const EssentialInformationForm = ({ onBack, onContinue, formState, onFieldChange
   return (
     <section>
       {/* Staging banner */}
-      <div className="mb-6 bg-ifrc-staging py-2 text-center text-sm font-bold tracking-wider text-primary-foreground">
+      {/* <div className="mb-6 bg-ifrc-staging py-2 text-center text-sm font-bold tracking-wider text-primary-foreground">
         STAGING SITE
-      </div>
+      </div> */}
 
       <h2 className="mb-4 text-lg font-bold font-heading text-foreground">
         ESSENTIAL INFORMATION
