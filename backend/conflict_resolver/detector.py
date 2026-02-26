@@ -115,14 +115,54 @@ class ConflictDetector:
         non_conflicting_updates = []
         timestamp = datetime.utcnow().isoformat()
         
+        grouped_updates: Dict[str, List[Dict[str, Any]]] = {}
         for update in new_updates:
             field_name = update.get("field")
-            new_value = update.get("value")
-            
+            if field_name:
+                grouped_updates.setdefault(field_name, []).append(update)
+
+        for field_name, updates in grouped_updates.items():
             # Skip if field should always be overwritten
             if field_name in self.OVERWRITE_FIELDS:
-                non_conflicting_updates.append(update)
+                non_conflicting_updates.extend(updates)
                 continue
+            
+            # 1. Check for intra-batch conflicts (multiple new values for the same field that don't match)
+            if len(updates) > 1:
+                first_val = updates[0].get("value")
+                has_intra_conflict = False
+                conflicting_val = None
+                
+                for u in updates[1:]:
+                    if self._values_conflict(first_val, u.get("value")):
+                        has_intra_conflict = True
+                        conflicting_val = u.get("value")
+                        break
+                
+                if has_intra_conflict:
+                    conflict = Conflict(
+                        field_name=field_name,
+                        field_label=self.field_labels.get(field_name, field_name),
+                        existing_value=FieldValue(
+                            value=first_val,
+                            source=f"{source} (Extracted Value 1)",
+                            timestamp=timestamp,
+                            message_id=message_id
+                        ),
+                        new_value=FieldValue(
+                            value=conflicting_val,
+                            source=f"{source} (Extracted Value 2)",
+                            timestamp=timestamp,
+                            message_id=message_id
+                        ),
+                        conflict_id=f"{field_name}_intra_{timestamp.replace(':', '-')}"
+                    )
+                    conflicts.append(conflict)
+                    continue # Skip checking against current_state, resolve the internal conflict first
+
+            # 2. Check against current state (only one valid new update left to check)
+            update = updates[0]
+            new_value = update.get("value")
             
             # Check if field exists in current state
             if field_name not in current_state:
@@ -149,7 +189,8 @@ class ConflictDetector:
                 )
                 conflicts.append(conflict)
             else:
-                # Values are the same - no conflict
+                # Values are the same, or one safely overwrites the other - no conflict
+                # Just append the update to be processed if we need it
                 non_conflicting_updates.append(update)
         
         return conflicts, non_conflicting_updates
@@ -164,8 +205,14 @@ class ConflictDetector:
         # Check if BOTH are empty first (includes None, "", [])
         if self._is_empty(existing) and self._is_empty(new):
             return False
-        # If only one is empty, that's a conflict
-        if self._is_empty(existing) or self._is_empty(new):
+            
+        # If the existing value is empty, getting a new value is an UPDATE, not a conflict
+        if self._is_empty(existing):
+            return False
+            
+        # If the new value is empty but we have an existing value, technically it could be 
+        # a deletion request or missing data payload. Let's treat it as a conflict to be safe.
+        if self._is_empty(new):
             return True
         
         # Type mismatch is a conflict (except numeric types)
