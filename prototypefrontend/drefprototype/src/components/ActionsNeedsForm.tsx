@@ -2,6 +2,7 @@ import FormField from "./FormField";
 import { Plus, ChevronDown } from "lucide-react";
 import ImageUploadButton from "./ImageUploadButton";
 import { useState } from "react";
+import EvaluationModal from "./EvaluationModal";
 
 const TextArea = ({ placeholder, rows = 4 }: { placeholder?: string; rows?: number }) => (
     <textarea
@@ -39,12 +40,59 @@ interface ActionsNeedsFormProps {
 const ActionsNeedsForm = ({ onBack, onContinue }: ActionsNeedsFormProps) => {
     const [selectedActions, setSelectedActions] = useState<string[]>([]);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [ifrcDescription, setIfrcDescription] = useState("");
+    const [participatingNsDescription, setParticipatingNsDescription] = useState("");
+    const [icrcDescription, setIcrcDescription] = useState("");
+    const [governmentRequest, setGovernmentRequest] = useState("");
+    const [nationalAuthoritiesDescription, setNationalAuthoritiesDescription] = useState("");
+    const [unOtherActorsDescription, setUnOtherActorsDescription] = useState("");
+    const [coordinationMechanisms, setCoordinationMechanisms] = useState("");
+    const [assessmentReportUploaded, setAssessmentReportUploaded] = useState(false);
+    const [needsIdentified, setNeedsIdentified] = useState<string[]>([]);
+    const [gapsLimitations, setGapsLimitations] = useState("");
+    const [isEvaluating, setIsEvaluating] = useState(false);
+    const [evaluationResult, setEvaluationResult] = useState<any>(null);
+    const [showModal, setShowModal] = useState(false);
 
     const handleActionSelect = (action: string) => {
         if (!selectedActions.includes(action)) {
             setSelectedActions([...selectedActions, action]);
         }
         setIsDropdownOpen(false);
+    };
+
+    const handleEvaluate = async () => {
+        setIsEvaluating(true);
+        setShowModal(true);
+        try {
+            const formData = {
+                current_ns_actions: selectedActions,
+                ifrc_description: ifrcDescription,
+                participating_ns_description: participatingNsDescription,
+                icrc_description: icrcDescription,
+                government_request: governmentRequest,
+                national_authorities_description: nationalAuthoritiesDescription,
+                un_other_actors_description: unOtherActorsDescription,
+                coordination_mechanisms: coordinationMechanisms,
+                assessment_report_uploaded: assessmentReportUploaded,
+                needs_identified: needsIdentified,
+                gaps_limitations: gapsLimitations,
+            };
+            const response = await fetch(
+                "http://localhost:8000/api/v2/dref-evaluation/ai-evaluate/",
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ form_data: formData, section: "actions_needs" }),
+                }
+            );
+            const result = await response.json();
+            setEvaluationResult(result);
+        } catch (error) {
+            setEvaluationResult({ error: `Failed to evaluate: ${(error as Error).message}` });
+        } finally {
+            setIsEvaluating(false);
+        }
     };
 
     const removeAction = (action: string) => {
@@ -137,14 +185,26 @@ const ActionsNeedsForm = ({ onBack, onContinue }: ActionsNeedsFormProps) => {
           label="IFRC"
           description="Presence or not of IFRC in country (if not, indicate the cluster covering), support provided for this response, domestic coordination, technical, strategic, surge. Explain what support provided in terms of Secretariat services: PMER, Finance, Admin, HR, Security, logistics, NSD."
         >
-          <TextArea placeholder="Description" />
+          <textarea
+            rows={5}
+            value={ifrcDescription}
+            onChange={(e) => setIfrcDescription(e.target.value)}
+            className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+            placeholder="Description"
+          />
         </FormField>
 
         <FormField
           label="Participating National Societies"
           description="Briefly set out which PNS are present and give details of PNS contributions/roles on the ground and remotely for this specific operation."
         >
-          <TextArea placeholder="" />
+          <textarea
+            rows={5}
+            value={participatingNsDescription}
+            onChange={(e) => setParticipatingNsDescription(e.target.value)}
+            className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+            placeholder=""
+          />
         </FormField>
       </div>
 
@@ -158,7 +218,13 @@ const ActionsNeedsForm = ({ onBack, onContinue }: ActionsNeedsFormProps) => {
           label="ICRC"
           description="Presence or not of ICRC in country, and support directly provided for this emergency response. Other programs and support provided outside of the scope of this emergency should not be indicated here."
         >
-          <TextArea placeholder="Description" />
+          <textarea
+            rows={5}
+            value={icrcDescription}
+            onChange={(e) => setIcrcDescription(e.target.value)}
+            className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+            placeholder="Description"
+          />
         </FormField>
       </div>
 
@@ -172,33 +238,73 @@ const ActionsNeedsForm = ({ onBack, onContinue }: ActionsNeedsFormProps) => {
           <div className="flex items-center gap-4">
             <p className="text-sm text-foreground">Government has requested international assistance</p>
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input type="radio" name="gov-request" className="accent-primary" />
+              <input
+                type="radio"
+                name="gov-request"
+                value="yes"
+                checked={governmentRequest === "yes"}
+                onChange={(e) => setGovernmentRequest(e.target.value)}
+                className="accent-primary"
+              />
               Yes
             </label>
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input type="radio" name="gov-request" className="accent-primary" />
+              <input
+                type="radio"
+                name="gov-request"
+                value="no"
+                checked={governmentRequest === "no"}
+                onChange={(e) => setGovernmentRequest(e.target.value)}
+                className="accent-primary"
+              />
               No
             </label>
           </div>
         </FormField>
 
         <FormField label="National authorities" description="Brief description of actions taken by the national authorities.">
-          <TextArea placeholder="" />
+          <textarea
+            rows={4}
+            value={nationalAuthoritiesDescription}
+            onChange={(e) => setNationalAuthoritiesDescription(e.target.value)}
+            className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+            placeholder=""
+          />
         </FormField>
 
         <FormField label="UN or other actors" description="Brief description of actions taken by the UN or other actors.">
-          <TextArea placeholder="" />
+          <textarea
+            rows={4}
+            value={unOtherActorsDescription}
+            onChange={(e) => setUnOtherActorsDescription(e.target.value)}
+            className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+            placeholder=""
+          />
         </FormField>
 
         <FormField label="Coordination mechanisms">
           <div className="flex items-center gap-4">
             <p className="text-sm text-foreground">Are there major coordination mechanisms in place?</p>
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input type="radio" name="coordination" className="accent-primary" />
+              <input
+                type="radio"
+                name="coordination"
+                value="yes"
+                checked={coordinationMechanisms === "yes"}
+                onChange={(e) => setCoordinationMechanisms(e.target.value)}
+                className="accent-primary"
+              />
               Yes
             </label>
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input type="radio" name="coordination" className="accent-primary" />
+              <input
+                type="radio"
+                name="coordination"
+                value="no"
+                checked={coordinationMechanisms === "no"}
+                onChange={(e) => setCoordinationMechanisms(e.target.value)}
+                className="accent-primary"
+              />
               No
             </label>
           </div>
@@ -213,17 +319,26 @@ const ActionsNeedsForm = ({ onBack, onContinue }: ActionsNeedsFormProps) => {
       <div className="space-y-4">
         <FormField label="Upload assessment report" description="Assessment report file type: pdf, docx, pptx, xlsx.">
           <div>
-            <ImageUploadButton label="Select a File" accept=".pdf,.docx,.pptx,.xlsx" />
+            <button
+              onClick={() => setAssessmentReportUploaded(!assessmentReportUploaded)}
+              className="rounded border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+            >
+              {assessmentReportUploaded ? "✓ Report Uploaded" : "Select a File"}
+            </button>
+            {assessmentReportUploaded && <span className="text-xs text-green-600 ml-2">Report uploaded</span>}
           </div>
         </FormField>
 
         <FormField label="Needs identified">
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Select the needs that apply.</p>
-            <button className="flex items-center gap-2 rounded border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
-              <Plus className="h-4 w-4" />
-              Add
-            </button>
+            <p className="text-sm text-muted-foreground">Enter identified needs (comma-separated or as items).</p>
+            <textarea
+              rows={3}
+              value={needsIdentified.join(", ")}
+              onChange={(e) => setNeedsIdentified(e.target.value.split(",").map(s => s.trim()).filter(s => s))}
+              className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+              placeholder="e.g. Shelter, Water & Sanitation, Health"
+            />
           </div>
         </FormField>
 
@@ -241,7 +356,13 @@ const ActionsNeedsForm = ({ onBack, onContinue }: ActionsNeedsFormProps) => {
                 <li><strong>Vulnerable groups:</strong> identify any specific vulnerable groups whose needs may not have been fully captured or addressed during the assessment (e.g., displaced persons, elderly, people with disabilities).</li>
               </ul>
             </div>
-            <TextArea placeholder="Description" rows={5} />
+            <textarea
+              rows={5}
+              value={gapsLimitations}
+              onChange={(e) => setGapsLimitations(e.target.value)}
+              className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+              placeholder="Description"
+            />
           </div>
         </FormField>
       </div>
@@ -260,7 +381,36 @@ const ActionsNeedsForm = ({ onBack, onContinue }: ActionsNeedsFormProps) => {
         >
           Continue
         </button>
+        <button
+          onClick={handleEvaluate}
+          disabled={isEvaluating}
+          className="rounded bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isEvaluating ? "Evaluating..." : "Evaluate"}
+        </button>
       </div>
+      <EvaluationModal
+        isOpen={showModal}
+        result={evaluationResult}
+        isLoading={isEvaluating}
+        onClose={() => {
+          setShowModal(false);
+          setEvaluationResult(null);
+        }}
+        formData={{
+          current_ns_actions: selectedActions,
+          ifrc_description: ifrcDescription,
+          participating_ns_description: participatingNsDescription,
+          icrc_description: icrcDescription,
+          government_request: governmentRequest,
+          national_authorities_description: nationalAuthoritiesDescription,
+          un_other_actors_description: unOtherActorsDescription,
+          coordination_mechanisms: coordinationMechanisms,
+          assessment_report_uploaded: assessmentReportUploaded,
+          needs_identified: needsIdentified,
+          gaps_limitations: gapsLimitations,
+        }}
+      />
     </section>
   );
 };

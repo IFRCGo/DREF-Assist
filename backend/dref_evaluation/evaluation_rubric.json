@@ -1,0 +1,323 @@
+{
+  "version": "1.0",
+  "description": "IFRC DREF Quality Control Rubric",
+  "sections": {
+    "operation_overview": {
+      "name": "Essential Information",
+      "criteria": [
+        {
+          "field": "national_society",
+          "criterion": "A National Society has been selected from the dropdown"
+        },
+        {
+          "field": "dref_type",
+          "criterion": "The Application is done in the right type of DREF funding request template (Assessment, Response, or Anticipation)"
+        },
+        {
+          "field": "disaster_type",
+          "criterion": "The type of disaster is clearly specified (Flood, Earthquake, Cyclone, Drought, Epidemic, etc.)"
+        },
+        {
+          "field": "onset_type",
+          "criterion": "Onset type is appropriately selected (Sudden Onset or Slow Onset)"
+        },
+        {
+          "field": "disaster_category",
+          "criterion": "The event is clearly classified according to the IFRC Crisis Categorisation (Yellow, Orange, or Red)"
+        },
+        {
+          "field": "affected_country",
+          "criterion": "The affected country(ies) have been clearly specified"
+        },
+        {
+          "field": "affected_region",
+          "criterion": "The targeted areas are clearly defined with affected region(s) or province(s) specified"
+        },
+        {
+          "field": "dref_title",
+          "criterion": "DREF title clearly explains the disaster/crisis type and area of focus"
+        },
+        {
+          "field": "emergency_appeal_planned",
+          "criterion": "A clear decision has been made regarding whether an emergency appeal is planned (Yes or No)"
+        },
+        {
+          "field": "map_upload",
+          "criterion": "A map of the targeted areas is available in the DREF application showing geographic scope"
+        },
+        {
+          "field": "cover_image",
+          "criterion": "Supporting documentation/cover image has been uploaded demonstrating the situation"
+        }
+      ]
+    },
+    "event_detail": {
+      "name": "Event Detail",
+      "criteria": [
+        {
+          "field": "trigger_date",
+          "criterion": "The date of disaster/trigger date is specified in the application"
+        },
+        {
+          "field": "total_affected_population",
+          "criterion": "The scope and scale of the event is clearly detailed and provides enough information aligned to the assigned crisis categorization"
+        },
+        {
+          "field": "people_in_need",
+          "criterion": "People in need (PIN) figures are provided or marked as optional with clear definition"
+        },
+        {
+          "field": "male_affected",
+          "criterion": "Estimated male affected population is specified with numbers"
+        },
+        {
+          "field": "female_affected",
+          "criterion": "Estimated female affected population is specified with numbers"
+        },
+        {
+          "field": "girls_under_18",
+          "criterion": "Estimated girls under 18 are included in demographic breakdown"
+        },
+        {
+          "field": "boys_under_18",
+          "criterion": "Estimated boys under 18 are included in demographic breakdown"
+        },
+        {
+          "field": "event_description",
+          "criterion": "The event is clearly explained in terms of when, where and what occurred (or is expected to occur in anticipatory actions)"
+        },
+        {
+          "field": "source_information",
+          "criterion": "It is clear if information is from needs assessment by NS or secondary data with clear description of sources (e.g. UN, NGOs, authorities)"
+        },
+        {
+          "field": "photos_upload",
+          "criterion": "Photos have been included to show the damages caused by the disaster and/or National Society actions"
+        }
+      ]
+    },
+    "actions_needs": {
+      "name": "Actions & Needs",
+      "criteria": [
+        {
+          "field": "current_ns_actions",
+          "criterion": "It is clear whether the National Society has started responding, and the date when they started their activities"
+        },
+        {
+          "field": "ifrc_description",
+          "criterion": "Actions done by Movement and external partners, including support to the National Society, are explained in the application"
+        },
+        {
+          "field": "participating_ns_description",
+          "criterion": "Coordination with ICRC/Participating National Societies and other organisations is well explained with their specific contributions"
+        },
+        {
+          "field": "icrc_description",
+          "criterion": "ICRC presence and direct support for the emergency response are documented"
+        },
+        {
+          "field": "government_request",
+          "criterion": "It is clear whether government has requested international assistance"
+        },
+        {
+          "field": "national_authorities_description",
+          "criterion": "Actions taken by national authorities are clearly explained"
+        },
+        {
+          "field": "un_other_actors_description",
+          "criterion": "Actions by UN and other external partners are clearly documented"
+        },
+        {
+          "field": "coordination_mechanisms",
+          "criterion": "General coordination mechanisms in place, if any, are mentioned and explained"
+        },
+        {
+          "field": "assessment_report_uploaded",
+          "criterion": "Needs analysis is based on actual assessment by National Society or secondary data sources are clearly identified"
+        },
+        {
+          "field": "needs_identified",
+          "criterion": "The needs analysis is focused on the needs of the affected population and are clearly detailed by sector"
+        },
+        {
+          "field": "gaps_limitations",
+          "criterion": "Any current gaps of information regarding the needs of the population are mentioned with explanation of how they will be covered"
+        }
+      ]
+    },
+    "operation": {
+      "name": "Operation",
+      "criteria": [
+        {
+          "field": "operation_objective",
+          "criterion": "Operation objective clearly defines the targeted population, targeted areas, type of support/services, and planned length of the operation"
+        },
+        {
+          "field": "operation_strategy_rationale",
+          "criterion": "The rationale clearly explains the connection between the identified needs and the proposed operation"
+        },
+        {
+          "field": "targeting_description",
+          "criterion": "Number of persons to be targeted and areas to be reached are clearly defined and coherent with identified needs"
+        },
+        {
+          "field": "selection_criteria",
+          "criterion": "Selection criteria are clearly explained ensuring that the support reaches those most in need and most vulnerable"
+        },
+        {
+          "field": "support_document_uploaded",
+          "criterion": "All proposed activities are clearly linked to specific consequences of the disaster/crisis and are aligned with Sphere standards"
+        },
+        {
+          "field": "women_targeted",
+          "criterion": "Capacity of the National Society to implement the proposed activities is clearly explained"
+        },
+        {
+          "field": "men_targeted",
+          "criterion": "If the NS is already implementing other DREF operations, explanations on how current capacity is organised are provided"
+        },
+        {
+          "field": "girls_targeted",
+          "criterion": "For any key humanitarian needs not covered by this DREF, it is explained how they will be covered by others or acknowledged as a gap"
+        },
+        {
+          "field": "boys_targeted",
+          "criterion": "For each identified risk, mitigation measures are clearly explained to reduce the impact on the operation"
+        },
+        {
+          "field": "antifraud_policy",
+          "criterion": "National Society has anti-fraud and corruption policy in place"
+        },
+        {
+          "field": "sexual_exploitation_policy",
+          "criterion": "National Society has prevention of sexual exploitation and abuse policy"
+        },
+        {
+          "field": "child_protection_policy",
+          "criterion": "National Society has child protection/safeguarding policy"
+        },
+        {
+          "field": "whistleblower_policy",
+          "criterion": "National Society has whistleblower protection policy"
+        },
+        {
+          "field": "anti_harassment_policy",
+          "criterion": "National Society has anti-sexual harassment policy"
+        },
+        {
+          "field": "risk_analysis",
+          "criterion": "Security and safety concerns for the operation and National Society staff/volunteers are identified with mitigation measures in place"
+        },
+        {
+          "field": "security_concerns",
+          "criterion": "All sector budgets are coherent with proposed activities, number of persons targeted, and operational indicators"
+        },
+        {
+          "field": "child_safeguarding_assessment",
+          "criterion": "Child safeguarding risk analysis assessment has been completed"
+        },
+        {
+          "field": "budget_uploaded",
+          "criterion": "Budget summary document has been uploaded"
+        },
+        {
+          "field": "requested_amount",
+          "criterion": "Requested funding amount in CHF is specified"
+        },
+        {
+          "field": "staff_volunteers_description",
+          "criterion": "Human resources (volunteers, permanent staff, response units from Partner National Societies) required for implementation are clearly explained"
+        },
+        {
+          "field": "volunteer_diversity_description",
+          "criterion": "Volunteer team diversity (gender, age, cultural) is described"
+        },
+        {
+          "field": "surge_personnel_deployed",
+          "criterion": "If Surge personnel are requested, the needed roles and positions are clearly specified and justified"
+        },
+        {
+          "field": "procurement_description",
+          "criterion": "Procurement responsibility and approach are clearly explained"
+        },
+        {
+          "field": "monitoring_description",
+          "criterion": "Monitoring mechanisms and systems are documented"
+        },
+        {
+          "field": "communication_strategy",
+          "criterion": "National Society communication strategy for the operation is described"
+        }
+      ]
+    },
+    "operational_timeframe_contacts": {
+      "name": "Operational Timeframe & Contacts",
+      "criteria": [
+        {
+          "field": "ns_application_date",
+          "criterion": "Date of National Society application is recorded"
+        },
+        {
+          "field": "gva_submission_date",
+          "criterion": "Date of submission to Geneva (GVA) is recorded"
+        },
+        {
+          "field": "approval_date",
+          "criterion": "Date of approval is recorded"
+        },
+        {
+          "field": "operation_timeframe",
+          "criterion": "Operation timeframe in months is clearly specified"
+        },
+        {
+          "field": "operation_end_date",
+          "criterion": "End date of operation is calculated and recorded"
+        },
+        {
+          "field": "publishing_date",
+          "criterion": "Date of publishing is recorded"
+        },
+        {
+          "field": "appeal_code",
+          "criterion": "Appeal code is documented"
+        },
+        {
+          "field": "glide_number",
+          "criterion": "GLIDE number is documented"
+        },
+        {
+          "field": "ifrc_appeal_manager",
+          "criterion": "IFRC Appeal Manager contact information (name, title, email, phone) is complete"
+        },
+        {
+          "field": "ifrc_project_manager",
+          "criterion": "IFRC Project Manager contact information (name, title, email, phone) is complete"
+        },
+        {
+          "field": "ns_contact",
+          "criterion": "National Society contact information (name, title, email, phone) is complete"
+        },
+        {
+          "field": "ifrc_focal_point",
+          "criterion": "IFRC Focal Point for Emergency contact information is complete"
+        },
+        {
+          "field": "dref_focal_point",
+          "criterion": "DREF Regional Focal Point contact information is complete"
+        },
+        {
+          "field": "media_contact",
+          "criterion": "Media contact information is complete"
+        },
+        {
+          "field": "integrity_focal_point",
+          "criterion": "National Societies' Integrity Focal Point contact information is complete"
+        },
+        {
+          "field": "ns_hotline",
+          "criterion": "National Society hotline number is provided"
+        }
+      ]
+    }
+  }
+}

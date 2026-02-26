@@ -1,3 +1,4 @@
+import { useState } from "react";
 import FormField from "./FormField";
 import {
   Select,
@@ -7,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ImageUploadButton from "./ImageUploadButton";
+import EvaluationModal from "./EvaluationModal";
 
 const TextInput = ({ placeholder }: { placeholder?: string }) => (
   <input
@@ -22,6 +24,59 @@ interface EssentialInformationFormProps {
 }
 
 const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFormProps) => {
+  // Form state
+  const [nationalSociety, setNationalSociety] = useState("");
+  const [drefType, setDrefType] = useState("");
+  const [disasterType, setDisasterType] = useState("");
+  const [onsetType, setOnsetType] = useState("");
+  const [disasterCategory, setDisasterCategory] = useState("");
+  const [affectedCountry, setAffectedCountry] = useState("");
+  const [affectedRegion, setAffectedRegion] = useState("");
+  const [drefTitle, setDrefTitle] = useState("");
+  const [emergencyAppeal, setEmergencyAppeal] = useState("");
+  const [mapUploaded, setMapUploaded] = useState(false);
+  const [coverImageUploaded, setCoverImageUploaded] = useState(false);
+
+  // Evaluation state
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evaluationResult, setEvaluationResult] = useState<any>(null);
+  const [showModal, setShowModal] = useState(false);
+
+  const handleEvaluate = async () => {
+    setIsEvaluating(true);
+    setShowModal(true);
+    try {
+      const formData = {
+        national_society: nationalSociety,
+        dref_type: drefType,
+        disaster_type: disasterType,
+        onset_type: onsetType,
+        disaster_category: disasterCategory,
+        affected_country: affectedCountry,
+        affected_region: affectedRegion,
+        dref_title: drefTitle,
+        emergency_appeal_planned: emergencyAppeal,
+        map_upload: mapUploaded,
+        cover_image: coverImageUploaded,
+      };
+
+      const response = await fetch(
+        "http://localhost:8000/api/v2/dref-evaluation/ai-evaluate/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ form_data: formData, section: "essential_information" }),
+        }
+      );
+      const result = await response.json();
+      setEvaluationResult(result);
+    } catch (error) {
+      setEvaluationResult({ error: `Failed to evaluate: ${(error as Error).message}` });
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+
   return (
     <section>
       {/* Staging banner */}
@@ -39,7 +94,7 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
           description="Indicate your National Society by selecting it from the drop-down list."
           required
         >
-          <Select>
+          <Select value={nationalSociety} onValueChange={setNationalSociety}>
             <SelectTrigger>
               <SelectValue placeholder="Select National Society" />
             </SelectTrigger>
@@ -96,7 +151,7 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
         <FormField label="DREF Type" required>
           <div>
             <p className="mb-1 text-xs text-muted-foreground">Type of DREF</p>
-            <Select>
+            <Select value={drefType} onValueChange={setDrefType}>
               <SelectTrigger>
                 <SelectValue placeholder="Select DREF type" />
               </SelectTrigger>
@@ -115,7 +170,7 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <p className="mb-1 text-xs text-muted-foreground">Type of Disaster</p>
-                <Select>
+                <Select value={disasterType} onValueChange={setDisasterType}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select disaster type" />
                   </SelectTrigger>
@@ -140,7 +195,7 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
                 <p className="mb-1 text-xs text-muted-foreground">
                   Type of Onset <span className="text-primary">*</span>
                 </p>
-                <Select>
+                <Select value={onsetType} onValueChange={setOnsetType}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select onset type" />
                   </SelectTrigger>
@@ -155,7 +210,7 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
               <p className="mb-1 text-xs text-muted-foreground">
                 Disaster Category <span className="text-primary">*</span>
               </p>
-              <Select>
+              <Select value={disasterCategory} onValueChange={setDisasterCategory}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select disaster category" />
                 </SelectTrigger>
@@ -173,7 +228,7 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <p className="mb-1 text-xs text-muted-foreground">Add Country</p>
-              <Select>
+              <Select value={affectedCountry} onValueChange={setAffectedCountry}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select country" />
                 </SelectTrigger>
@@ -198,7 +253,7 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
             </div>
             <div>
               <p className="mb-1 text-xs text-muted-foreground">Region/Province</p>
-              <Select>
+              <Select value={affectedRegion} onValueChange={setAffectedRegion}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select region" />
                 </SelectTrigger>
@@ -217,7 +272,13 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
         <FormField label="DREF Title" required>
           <div className="flex gap-2">
             <div className="flex-1">
-              <TextInput />
+              <input
+                type="text"
+                placeholder="Enter DREF title"
+                value={drefTitle}
+                onChange={(e) => setDrefTitle(e.target.value)}
+                className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
             </div>
             <button className="rounded border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
               Generate title
@@ -228,11 +289,25 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
         <FormField label="Emergency appeal planned">
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input type="radio" name="emergency" className="accent-primary" />
+              <input
+                type="radio"
+                name="emergency"
+                value="yes"
+                checked={emergencyAppeal === "yes"}
+                onChange={(e) => setEmergencyAppeal(e.target.value)}
+                className="accent-primary"
+              />
               Yes
             </label>
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input type="radio" name="emergency" className="accent-primary" />
+              <input
+                type="radio"
+                name="emergency"
+                value="no"
+                checked={emergencyAppeal === "no"}
+                onChange={(e) => setEmergencyAppeal(e.target.value)}
+                className="accent-primary"
+              />
               No
             </label>
           </div>
@@ -242,14 +317,30 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
           label="Upload map"
           description="Add a map highlighting the targeted areas for this operation, it will be used for the publicly published DREF application."
         >
-          <ImageUploadButton label="Select an Image" />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMapUploaded(!mapUploaded)}
+              className="rounded border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+            >
+              {mapUploaded ? "✓ Map Uploaded" : "Select an Image"}
+            </button>
+            {mapUploaded && <span className="text-xs text-green-600">Map uploaded</span>}
+          </div>
         </FormField>
 
         <FormField
           label="Cover image"
           description="Upload a image for the cover page of the publicly published DREF application."
         >
-          <ImageUploadButton label="Select an Image" />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setCoverImageUploaded(!coverImageUploaded)}
+              className="rounded border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+            >
+              {coverImageUploaded ? "✓ Cover Image Uploaded" : "Select an Image"}
+            </button>
+            {coverImageUploaded && <span className="text-xs text-green-600">Cover image uploaded</span>}
+          </div>
         </FormField>
       </div>
 
@@ -267,7 +358,36 @@ const EssentialInformationForm = ({ onBack, onContinue }: EssentialInformationFo
         >
           Continue
         </button>
+        <button
+          onClick={handleEvaluate}
+          disabled={isEvaluating}
+          className="rounded bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isEvaluating ? "Evaluating..." : "Evaluate"}
+        </button>
       </div>
+      <EvaluationModal
+        isOpen={showModal}
+        result={evaluationResult}
+        isLoading={isEvaluating}
+        onClose={() => {
+          setShowModal(false);
+          setEvaluationResult(null);
+        }}
+        formData={{
+          national_society: nationalSociety,
+          dref_type: drefType,
+          disaster_type: disasterType,
+          onset_type: onsetType,
+          disaster_category: disasterCategory,
+          affected_country: affectedCountry,
+          affected_region: affectedRegion,
+          dref_title: drefTitle,
+          emergency_appeal_planned: emergencyAppeal,
+          map_upload: mapUploaded,
+          cover_image: coverImageUploaded,
+        }}
+      />
     </section>
   );
 };
