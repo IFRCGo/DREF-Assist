@@ -2,14 +2,7 @@ import FormField from "./FormField";
 import { Plus, ChevronDown } from "lucide-react";
 import ImageUploadButton from "./ImageUploadButton";
 import { useState } from "react";
-
-const TextArea = ({ placeholder, rows = 4 }: { placeholder?: string; rows?: number }) => (
-    <textarea
-        rows={rows}
-        placeholder={placeholder}
-        className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y"
-    />
-);
+import { type EnrichedFormState } from "@/lib/api";
 
 const actionOptions = [
     "Shelter, Housing And Settlements",
@@ -34,21 +27,39 @@ const actionOptions = [
 interface ActionsNeedsFormProps {
     onBack: () => void;
     onContinue: () => void;
+    formState?: EnrichedFormState;
+    onFieldChange?: (fieldId: string, value: any) => void;
 }
 
-const ActionsNeedsForm = ({ onBack, onContinue }: ActionsNeedsFormProps) => {
-    const [selectedActions, setSelectedActions] = useState<string[]>([]);
+const getField = (formState: EnrichedFormState | undefined, fieldId: string): string => {
+    const val = formState?.[fieldId]?.value;
+    return val != null ? String(val) : "";
+};
+
+const ActionsNeedsForm = ({ onBack, onContinue, formState, onFieldChange }: ActionsNeedsFormProps) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    const field = (id: string) => getField(formState, id);
+    const change = (id: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+        onFieldChange?.(id, e.target.value);
+
+    // Read selected actions from formState (persisted as an array)
+    const selectedActions: string[] = (() => {
+        const val = formState?.["actions_needs.ns_action_types"]?.value;
+        return Array.isArray(val) ? val : [];
+    })();
 
     const handleActionSelect = (action: string) => {
         if (!selectedActions.includes(action)) {
-            setSelectedActions([...selectedActions, action]);
+            const updated = [...selectedActions, action];
+            onFieldChange?.("actions_needs.ns_action_types", updated);
         }
         setIsDropdownOpen(false);
     };
 
     const removeAction = (action: string) => {
-        setSelectedActions(selectedActions.filter(a => a !== action));
+        const updated = selectedActions.filter(a => a !== action);
+        onFieldChange?.("actions_needs.ns_action_types", updated);
     };
 
     return (
@@ -66,11 +77,11 @@ const ActionsNeedsForm = ({ onBack, onContinue }: ActionsNeedsFormProps) => {
                         <div className="flex items-center gap-4">
                             <p className="text-sm text-foreground">Has the National Society started any actions?</p>
                             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                                <input type="radio" name="ns-actions" className="accent-primary" />
+                                <input type="radio" name="ns-actions" className="accent-primary" checked={field("actions_needs.ns_actions_started") === "true"} onChange={() => onFieldChange?.("actions_needs.ns_actions_started", true)} />
                                 Yes
                             </label>
                             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                                <input type="radio" name="ns-actions" className="accent-primary" />
+                                <input type="radio" name="ns-actions" className="accent-primary" checked={field("actions_needs.ns_actions_started") === "false"} onChange={() => onFieldChange?.("actions_needs.ns_actions_started", false)} />
                                 No
                             </label>
                         </div>
@@ -137,14 +148,14 @@ const ActionsNeedsForm = ({ onBack, onContinue }: ActionsNeedsFormProps) => {
           label="IFRC"
           description="Presence or not of IFRC in country (if not, indicate the cluster covering), support provided for this response, domestic coordination, technical, strategic, surge. Explain what support provided in terms of Secretariat services: PMER, Finance, Admin, HR, Security, logistics, NSD."
         >
-          <TextArea placeholder="Description" />
+          <textarea rows={4} placeholder="Description" value={field("actions_needs.ifrc_description")} onChange={change("actions_needs.ifrc_description")} className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y" />
         </FormField>
 
         <FormField
           label="Participating National Societies"
           description="Briefly set out which PNS are present and give details of PNS contributions/roles on the ground and remotely for this specific operation."
         >
-          <TextArea placeholder="" />
+          <textarea rows={4} value={field("actions_needs.participating_ns")} onChange={change("actions_needs.participating_ns")} className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y" />
         </FormField>
       </div>
 
@@ -158,7 +169,7 @@ const ActionsNeedsForm = ({ onBack, onContinue }: ActionsNeedsFormProps) => {
           label="ICRC"
           description="Presence or not of ICRC in country, and support directly provided for this emergency response. Other programs and support provided outside of the scope of this emergency should not be indicated here."
         >
-          <TextArea placeholder="Description" />
+          <textarea rows={4} placeholder="Description" value={field("actions_needs.icrc_description")} onChange={change("actions_needs.icrc_description")} className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y" />
         </FormField>
       </div>
 
@@ -172,33 +183,33 @@ const ActionsNeedsForm = ({ onBack, onContinue }: ActionsNeedsFormProps) => {
           <div className="flex items-center gap-4">
             <p className="text-sm text-foreground">Government has requested international assistance</p>
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input type="radio" name="gov-request" className="accent-primary" />
+              <input type="radio" name="gov-request" className="accent-primary" checked={field("actions_needs.gov_requested_assistance") === "true"} onChange={() => onFieldChange?.("actions_needs.gov_requested_assistance", true)} />
               Yes
             </label>
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input type="radio" name="gov-request" className="accent-primary" />
+              <input type="radio" name="gov-request" className="accent-primary" checked={field("actions_needs.gov_requested_assistance") === "false"} onChange={() => onFieldChange?.("actions_needs.gov_requested_assistance", false)} />
               No
             </label>
           </div>
         </FormField>
 
         <FormField label="National authorities" description="Brief description of actions taken by the national authorities.">
-          <TextArea placeholder="" />
+          <textarea rows={4} value={field("actions_needs.national_authorities_actions")} onChange={change("actions_needs.national_authorities_actions")} className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y" />
         </FormField>
 
         <FormField label="UN or other actors" description="Brief description of actions taken by the UN or other actors.">
-          <TextArea placeholder="" />
+          <textarea rows={4} value={field("actions_needs.un_other_actors")} onChange={change("actions_needs.un_other_actors")} className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y" />
         </FormField>
 
         <FormField label="Coordination mechanisms">
           <div className="flex items-center gap-4">
             <p className="text-sm text-foreground">Are there major coordination mechanisms in place?</p>
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input type="radio" name="coordination" className="accent-primary" />
+              <input type="radio" name="coordination" className="accent-primary" checked={field("actions_needs.coordination_mechanisms") === "true"} onChange={() => onFieldChange?.("actions_needs.coordination_mechanisms", true)} />
               Yes
             </label>
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input type="radio" name="coordination" className="accent-primary" />
+              <input type="radio" name="coordination" className="accent-primary" checked={field("actions_needs.coordination_mechanisms") === "false"} onChange={() => onFieldChange?.("actions_needs.coordination_mechanisms", false)} />
               No
             </label>
           </div>
@@ -241,7 +252,7 @@ const ActionsNeedsForm = ({ onBack, onContinue }: ActionsNeedsFormProps) => {
                 <li><strong>Vulnerable groups:</strong> identify any specific vulnerable groups whose needs may not have been fully captured or addressed during the assessment (e.g., displaced persons, elderly, people with disabilities).</li>
               </ul>
             </div>
-            <TextArea placeholder="Description" rows={5} />
+            <textarea placeholder="Description" rows={5} value={field("actions_needs.identified_gaps")} onChange={change("actions_needs.identified_gaps")} className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y" />
           </div>
         </FormField>
       </div>

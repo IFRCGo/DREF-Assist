@@ -1,36 +1,25 @@
 import FormField from "./FormField";
-import { ChevronDown, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import ImageUploadButton from "./ImageUploadButton";
-
-const SelectInput = ({ placeholder }: { placeholder?: string }) => (
-  <div className="flex items-center rounded border border-input bg-card px-3 py-2">
-    <span className="flex-1 text-sm text-muted-foreground">{placeholder}</span>
-    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-  </div>
-);
-
-const TextInput = ({ placeholder }: { placeholder?: string }) => (
-  <input
-    type="text"
-    placeholder={placeholder}
-    className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-  />
-);
-
-const DateInput = ({ placeholder }: { placeholder?: string }) => (
-  <input
-    type="text"
-    placeholder={placeholder || "dd/mm/yyyy"}
-    className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-  />
-);
+import { type EnrichedFormState } from "@/lib/api";
 
 interface EventDetailFormProps {
   onBack: () => void;
   onContinue: () => void;
+  formState?: EnrichedFormState;
+  onFieldChange?: (fieldId: string, value: any) => void;
 }
 
-const EventDetailForm = ({ onBack, onContinue }: EventDetailFormProps) => {
+const getField = (formState: EnrichedFormState | undefined, fieldId: string): string => {
+  const val = formState?.[fieldId]?.value;
+  return val != null ? String(val) : "";
+};
+
+const EventDetailForm = ({ onBack, onContinue, formState, onFieldChange }: EventDetailFormProps) => {
+  const field = (id: string) => getField(formState, id);
+  const change = (id: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    onFieldChange?.(id, e.target.value);
+
   return (
     <section>
       <h2 className="mb-4 text-lg font-bold font-heading text-foreground">
@@ -39,18 +28,34 @@ const EventDetailForm = ({ onBack, onContinue }: EventDetailFormProps) => {
 
       <div className="space-y-4">
         <FormField label="Date when the trigger was met">
-          <DateInput />
+          <input
+            type="text"
+            value={field("event_detail.date_trigger_met")}
+            onChange={change("event_detail.date_trigger_met")}
+            placeholder="dd/mm/yyyy"
+            className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
         </FormField>
 
         <FormField label="Numeric Details">
           <div className="space-y-3">
             <div>
               <p className="mb-1 text-xs text-muted-foreground">Total affected population</p>
-              <TextInput />
+              <input
+                type="text"
+                value={field("event_detail.total_affected_population")}
+                onChange={change("event_detail.total_affected_population")}
+                className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
             </div>
             <div>
               <p className="mb-1 text-xs text-muted-foreground">People in need (Optional)</p>
-              <TextInput />
+              <input
+                type="text"
+                value={field("event_detail.people_in_need")}
+                onChange={change("event_detail.people_in_need")}
+                className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
             </div>
             <div className="rounded border border-border bg-muted/30 p-3 text-xs text-muted-foreground leading-relaxed space-y-2">
               <p>
@@ -63,21 +68,41 @@ const EventDetailForm = ({ onBack, onContinue }: EventDetailFormProps) => {
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <p className="mb-1 text-xs text-muted-foreground">Estimated male affected</p>
-                <TextInput />
+                <input
+                  type="text"
+                  value={field("event_detail.estimated_male_affected")}
+                  onChange={change("event_detail.estimated_male_affected")}
+                  className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
               </div>
               <div>
                 <p className="mb-1 text-xs text-muted-foreground">Estimated female affected</p>
-                <TextInput />
+                <input
+                  type="text"
+                  value={field("event_detail.estimated_female_affected")}
+                  onChange={change("event_detail.estimated_female_affected")}
+                  className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
               </div>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <p className="mb-1 text-xs text-muted-foreground">Estimated Girls (under 18)</p>
-                <TextInput />
+                <input
+                  type="text"
+                  value={field("event_detail.estimated_girls_under_18")}
+                  onChange={change("event_detail.estimated_girls_under_18")}
+                  className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
               </div>
               <div>
                 <p className="mb-1 text-xs text-muted-foreground">Estimated Boys (under 18)</p>
-                <TextInput />
+                <input
+                  type="text"
+                  value={field("event_detail.estimated_boys_under_18")}
+                  onChange={change("event_detail.estimated_boys_under_18")}
+                  className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
               </div>
             </div>
           </div>
@@ -89,6 +114,8 @@ const EventDetailForm = ({ onBack, onContinue }: EventDetailFormProps) => {
         >
           <textarea
             rows={5}
+            value={field("event_detail.what_happened")}
+            onChange={change("event_detail.what_happened")}
             className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y"
             placeholder=""
           />

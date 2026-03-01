@@ -4,28 +4,44 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import ImageUploadButton from "./ImageUploadButton";
+import { type EnrichedFormState } from "@/lib/api";
 
 interface OperationFormProps {
   onBack: () => void;
   onContinue: () => void;
+  formState?: EnrichedFormState;
+  onFieldChange?: (fieldId: string, value: any) => void;
 }
 
-const YesNoField = ({ label, description }: { label: string; description?: string }) => (
-  <FormField label={label} description={description}>
-    <RadioGroup className="flex gap-6">
-      <div className="flex items-center gap-2">
-        <RadioGroupItem value="yes" id={`${label}-yes`} />
-        <Label htmlFor={`${label}-yes`} className="text-sm">Yes</Label>
-      </div>
-      <div className="flex items-center gap-2">
-        <RadioGroupItem value="no" id={`${label}-no`} />
-        <Label htmlFor={`${label}-no`} className="text-sm">No</Label>
-      </div>
-    </RadioGroup>
-  </FormField>
-);
+const getField = (formState: EnrichedFormState | undefined, fieldId: string): string => {
+  const val = formState?.[fieldId]?.value;
+  return val != null ? String(val) : "";
+};
 
-const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
+const OperationForm = ({ onBack, onContinue, formState, onFieldChange }: OperationFormProps) => {
+  const field = (id: string) => getField(formState, id);
+  const changeText = (id: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    onFieldChange?.(id, e.target.value);
+
+  const YesNoField = ({ label, description, fieldId }: { label: string; description?: string; fieldId: string }) => (
+    <FormField label={label} description={description}>
+      <RadioGroup
+        className="flex gap-6"
+        value={field(fieldId) === "true" ? "yes" : field(fieldId) === "false" ? "no" : undefined}
+        onValueChange={(v) => onFieldChange?.(fieldId, v === "yes")}
+      >
+        <div className="flex items-center gap-2">
+          <RadioGroupItem value="yes" id={`${fieldId}-yes`} />
+          <Label htmlFor={`${fieldId}-yes`} className="text-sm">Yes</Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <RadioGroupItem value="no" id={`${fieldId}-no`} />
+          <Label htmlFor={`${fieldId}-no`} className="text-sm">No</Label>
+        </div>
+      </RadioGroup>
+    </FormField>
+  );
+
   return (
     <div className="space-y-6 pb-8">
       {/* OBJECTIVE AND STRATEGY RATIONALE */}
@@ -40,6 +56,8 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
         <Textarea
           placeholder="The IFRC-DREF operation aims to [primary action] in order to [desired impact] for [target population] affected by [event/disaster], by providing [key services/interventions] and ensuring [core outcomes such as protection, dignity, and resilience] over [operation period]."
           rows={4}
+          value={field("operation.overall_objective")}
+          onChange={changeText("operation.overall_objective")}
         />
       </FormField>
 
@@ -54,7 +72,7 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
             <li>Justify why particular methods and actions were selected.</li>
             <li>Include any key factors that influence the strategy.</li>
           </ul>
-          <Textarea rows={4} />
+          <Textarea rows={4} value={field("operation.strategy_rationale")} onChange={changeText("operation.strategy_rationale")} />
         </div>
       </FormField>
 
@@ -67,14 +85,14 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
         label="Who will be targeted through this operation?"
         description="Explain the logic behind our targets. Which groups are we targeting and why? Explain how you will target vulnerable groups (e.g., Migrants, refugees, etc.)"
       >
-        <Textarea rows={3} placeholder="Description" />
+        <Textarea rows={3} placeholder="Description" value={field("operation.targeting_description")} onChange={changeText("operation.targeting_description")} />
       </FormField>
 
       <FormField
         label="Explain the selection criteria for the targeted population"
         description="Explain the rational and logic behind which groups are being targeted and why and address vulnerable groups."
       >
-        <Textarea rows={3} placeholder="Description" />
+        <Textarea rows={3} placeholder="Description" value={field("operation.selection_criteria")} onChange={changeText("operation.selection_criteria")} />
       </FormField>
 
       <FormField label="Upload any additional support document">
@@ -90,23 +108,23 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label className="text-sm font-semibold">Women</Label>
-            <Input type="number" className="mt-1" />
+            <Input type="number" className="mt-1" value={field("operation.targeted_women")} onChange={changeText("operation.targeted_women")} />
           </div>
           <div>
             <Label className="text-sm font-semibold">Men</Label>
-            <Input type="number" className="mt-1" />
+            <Input type="number" className="mt-1" value={field("operation.targeted_men")} onChange={changeText("operation.targeted_men")} />
           </div>
           <div>
             <Label className="text-sm font-semibold">Girls (under 18)</Label>
-            <Input type="number" className="mt-1" />
+            <Input type="number" className="mt-1" value={field("operation.targeted_girls")} onChange={changeText("operation.targeted_girls")} />
           </div>
           <div>
             <Label className="text-sm font-semibold">Boys (under 18)</Label>
-            <Input type="number" className="mt-1" />
+            <Input type="number" className="mt-1" value={field("operation.targeted_boys")} onChange={changeText("operation.targeted_boys")} />
           </div>
           <div>
             <Label className="text-sm font-semibold">Total Population</Label>
-            <Input type="number" className="mt-1" />
+            <Input type="number" className="mt-1" value={field("operation.targeted_total")} onChange={changeText("operation.targeted_total")} />
           </div>
           <div>
             <Label className="text-sm font-semibold">Estimate</Label>
@@ -118,22 +136,22 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
           </div>
           <div>
             <Label className="text-sm font-semibold">People with Disability</Label>
-            <Input type="number" className="mt-1" />
+            <Input type="number" className="mt-1" value={field("operation.people_with_disability")} onChange={changeText("operation.people_with_disability")} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label className="text-sm font-semibold">Urban</Label>
-            <Input type="number" className="mt-1" />
+            <Input type="number" className="mt-1" value={field("operation.urban_population")} onChange={changeText("operation.urban_population")} />
           </div>
           <div>
             <Label className="text-sm font-semibold">Rural</Label>
-            <Input type="number" className="mt-1" />
+            <Input type="number" className="mt-1" value={field("operation.rural_population")} onChange={changeText("operation.rural_population")} />
           </div>
         </div>
         <div>
           <Label className="text-sm font-semibold">Estimated Number of People on the move (if any)</Label>
-          <Input type="number" className="mt-1" />
+          <Input type="number" className="mt-1" value={field("operation.people_on_the_move")} onChange={changeText("operation.people_on_the_move")} />
         </div>
       </div>
 
@@ -142,11 +160,11 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
         Risk and Security Considerations (Including "Management")
       </h2>
 
-      <YesNoField label="Does your National Society have anti-fraud and corruption policy?" />
-      <YesNoField label="Does your National Society have prevention of sexual exploitation and abuse policy?" />
-      <YesNoField label="Does your National Society have child protection/child safeguarding policy?" />
-      <YesNoField label="Does your National Society have whistleblower protection policy?" />
-      <YesNoField label="Does your National Society have anti-sexual harassment policy?" />
+      <YesNoField label="Does your National Society have anti-fraud and corruption policy?" fieldId="operation.has_anti_fraud_policy" />
+      <YesNoField label="Does your National Society have prevention of sexual exploitation and abuse policy?" fieldId="operation.has_psea_policy" />
+      <YesNoField label="Does your National Society have child protection/child safeguarding policy?" fieldId="operation.has_child_protection_policy" />
+      <YesNoField label="Does your National Society have whistleblower protection policy?" fieldId="operation.has_whistleblower_policy" />
+      <YesNoField label="Does your National Society have anti-sexual harassment policy?" fieldId="operation.has_anti_harassment_policy" />
 
       <FormField
         label="Please analyse and indicate potential risks for this operation, its root causes and mitigation actions."
@@ -154,7 +172,7 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
       >
         <div className="space-y-2">
           <a href="#" className="text-xs text-primary underline">Annex III - Risk Categories.pdf</a>
-          <Textarea rows={4} />
+          <Textarea rows={4} value={field("operation.risk_analysis")} onChange={changeText("operation.risk_analysis")} />
         </div>
       </FormField>
 
@@ -168,13 +186,14 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
             <li>What safety risks could impact the well-being of staff, volunteers, or beneficiaries?</li>
             <li>Are there any specific security protocols or measures that need to be established?</li>
           </ul>
-          <Textarea rows={4} />
+          <Textarea rows={4} value={field("operation.security_concerns")} onChange={changeText("operation.security_concerns")} />
         </div>
       </FormField>
 
       <YesNoField
         label="Has the child safeguarding risk analysis assessment been completed?"
         description="The IFRC Child Safeguarding Risk Analysis helps Operations quickly identify and rate their key child safeguarding risks."
+        fieldId="operation.child_safeguarding_assessment"
       />
 
       {/* PLANNED INTERVENTION */}
@@ -193,7 +212,7 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
         label="Requested Amount in CHF"
         description="General funding requested to fund the interventions."
       >
-        <Input type="number" placeholder="CHF" />
+        <Input type="number" placeholder="CHF" value={field("operation.requested_amount_chf")} onChange={changeText("operation.requested_amount_chf")} />
         <p className="mt-1 text-xs text-destructive">Total amount of planned budget does not match the Requested Amount</p>
       </FormField>
 
@@ -212,7 +231,7 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
             <li>What specific roles or responsibilities will they have?</li>
             <li>Are there any key leadership positions or coordinators overseeing the activities?</li>
           </ul>
-          <Textarea rows={3} placeholder="Description" />
+          <Textarea rows={3} placeholder="Description" value={field("operation.staff_volunteers")} onChange={changeText("operation.staff_volunteers")} />
         </div>
       </FormField>
 
@@ -220,10 +239,10 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
         label="Does your volunteer team reflect the gender, age, and cultural diversity of the people you're helping?"
         description="This question is about making sure your team includes the right mix of people to best support those affected."
       >
-        <Textarea rows={3} placeholder="Description" />
+        <Textarea rows={3} placeholder="Description" value={field("operation.volunteer_diversity")} onChange={changeText("operation.volunteer_diversity")} />
       </FormField>
 
-      <YesNoField label="Will surge personnel be deployed?" />
+      <YesNoField label="Will surge personnel be deployed?" fieldId="operation.surge_personnel" />
 
       <FormField
         label="If there is procurement, will it be done by National Society or IFRC?"
@@ -237,7 +256,7 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
             <li>If for distribution, how long is the tendering expected to take?</li>
             <li>For Cash and Voucher Assistance, what is the status of the Financial Service Provider?</li>
           </ul>
-          <Textarea rows={3} placeholder="Description" />
+          <Textarea rows={3} placeholder="Description" value={field("operation.procurement")} onChange={changeText("operation.procurement")} />
         </div>
       </FormField>
 
@@ -252,7 +271,7 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
             <li>What indicators or milestones will be used to assess the success?</li>
             <li>Will there be IFRC monitoring visits? How will it be deployed?</li>
           </ul>
-          <Textarea rows={3} placeholder="Description" />
+          <Textarea rows={3} placeholder="Description" value={field("operation.monitoring")} onChange={changeText("operation.monitoring")} />
         </div>
       </FormField>
 
@@ -267,7 +286,7 @@ const OperationForm = ({ onBack, onContinue }: OperationFormProps) => {
             <li>Is there a media strategy in place for external communication?</li>
             <li>Will the IFRC be supporting with communication? What roles will be involved?</li>
           </ul>
-          <Textarea rows={3} placeholder="Description" />
+          <Textarea rows={3} placeholder="Description" value={field("operation.communication_strategy")} onChange={changeText("operation.communication_strategy")} />
         </div>
       </FormField>
 

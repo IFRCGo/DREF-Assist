@@ -5,13 +5,16 @@ This module provides the primary interface for the LLM handler, orchestrating
 prompt construction, API calls, and response processing.
 """
 
+import os
 from typing import Dict, Any, List, Optional, Union
 
-from openai import OpenAI
+from openai import AzureOpenAI
+from dotenv import load_dotenv
 
 from .prompt import build_system_prompt
 from .parser import process_llm_response
 
+load_dotenv()
 
 # Type alias for message content (text string or multimodal list from media-processor)
 MessageContent = Union[str, List[Dict[str, Any]]]
@@ -21,7 +24,7 @@ def handle_message(
     user_message: MessageContent,
     current_form_state: Dict[str, Any],
     conversation_history: Optional[List[Dict[str, Any]]] = None,
-    client: Optional[OpenAI] = None,
+    client: Optional[AzureOpenAI] = None,
 ) -> Dict[str, Any]:
     """
     Process a user message and return reply + field updates.
@@ -40,8 +43,8 @@ def handle_message(
         current_form_state: Dictionary mapping field IDs to their current values.
         conversation_history: Optional list of previous message dicts with
             "role" and "content" keys.
-        client: Optional OpenAI client instance. If not provided, creates one
-            using OPENAI_API_KEY from environment.
+        client: Optional AzureOpenAI client instance. If not provided, creates one
+            using Azure environment variables.
 
     Returns:
         Dictionary with:
@@ -51,7 +54,11 @@ def handle_message(
         - field_updates: list of validated field update dicts
     """
     if client is None:
-        client = OpenAI()
+        client = AzureOpenAI(
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+        )
 
     system_prompt = build_system_prompt(current_form_state)
 
@@ -63,7 +70,7 @@ def handle_message(
     messages.append({"role": "user", "content": user_message})
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
         messages=messages,
         temperature=0.1,
         response_format={"type": "json_object"},

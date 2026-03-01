@@ -10,7 +10,7 @@ class TestProcessUserInput:
     """Tests for the main process_user_input function."""
 
     def _create_mock_client(self, response_content: str):
-        """Helper to create a mock OpenAI client."""
+        """Helper to create a mock AzureOpenAI client."""
         mock_client = Mock()
         mock_response = Mock()
         mock_choice = Mock()
@@ -36,7 +36,7 @@ class TestProcessUserInput:
 
         result = process_user_input(
             user_message="There was a flood in Bangladesh",
-            current_form_state={},
+            enriched_form_state={},
             client=mock_client,
         )
 
@@ -44,6 +44,7 @@ class TestProcessUserInput:
         assert "Bangladesh" in result["reply"]
         assert len(result["field_updates"]) == 1
         assert "processing_summary" not in result
+        assert "conflicts" in result
 
     def test_text_with_conversation_history(self):
         """Test that conversation history is passed through."""
@@ -63,7 +64,13 @@ class TestProcessUserInput:
 
         result = process_user_input(
             user_message="Actually it's 7500",
-            current_form_state={"event_detail.total_affected_population": 5000},
+            enriched_form_state={
+                "event_detail.total_affected_population": {
+                    "value": 5000,
+                    "source": "user_message",
+                    "timestamp": "2024-01-01T00:00:00",
+                }
+            },
             conversation_history=history,
             client=mock_client,
         )
@@ -106,7 +113,7 @@ class TestProcessUserInput:
 
         result = process_user_input(
             user_message="Analyze this report",
-            current_form_state={},
+            enriched_form_state={},
             files=[{
                 "data": "base64pdfdata",
                 "type": "pdf",
@@ -154,7 +161,7 @@ class TestProcessUserInput:
 
         process_user_input(
             user_message="Look at this",
-            current_form_state={},
+            enriched_form_state={},
             files=[{
                 "data": "base64imagedata",
                 "type": "image",
@@ -193,7 +200,7 @@ class TestProcessUserInput:
 
         result = process_user_input(
             user_message="Review these",
-            current_form_state={},
+            enriched_form_state={},
             files=[
                 {"data": "pdf1", "type": "pdf", "filename": "doc1.pdf"},
                 {"data": "pdf2", "type": "pdf", "filename": "doc2.pdf"},
@@ -217,7 +224,7 @@ class TestProcessUserInput:
 
         result = process_user_input(
             user_message="What is DREF?",
-            current_form_state={},
+            enriched_form_state={},
             files=[],
             client=mock_client,
         )
@@ -233,14 +240,22 @@ class TestProcessUserInput:
         })
         mock_client = self._create_mock_client(response)
 
-        form_state = {
-            "operation_overview.country": "Nepal",
-            "operation_overview.disaster_type": "Earthquake",
+        enriched_form_state = {
+            "operation_overview.country": {
+                "value": "Nepal",
+                "source": "user_message",
+                "timestamp": "2024-01-01T00:00:00",
+            },
+            "operation_overview.disaster_type": {
+                "value": "Earthquake",
+                "source": "user_message",
+                "timestamp": "2024-01-01T00:00:00",
+            },
         }
 
         process_user_input(
             user_message="The magnitude was 7.2",
-            current_form_state=form_state,
+            enriched_form_state=enriched_form_state,
             client=mock_client,
         )
 
@@ -250,3 +265,57 @@ class TestProcessUserInput:
 
         assert "Nepal" in system_prompt
         assert "Earthquake" in system_prompt
+
+    def test_conflict_detection_with_enriched_state(self):
+        """Test that conflicts are detected when enriched form state has existing values."""
+        response = json.dumps({
+            "classification": "NEW_INFORMATION",
+            "reply": "I see the population is 7500.",
+            "field_updates": [
+                {"field_id": "event_detail.total_affected_population", "value": 7500},
+            ]
+        })
+        mock_client = self._create_mock_client(response)
+
+        enriched_form_state = {
+            "event_detail.total_affected_population": {
+                "value": 5000,
+                "source": "previous_report.pdf",
+                "timestamp": "2024-01-01T00:00:00",
+            }
+        }
+
+        result = process_user_input(
+            user_message="The affected population is 7500",
+            enriched_form_state=enriched_form_state,
+            client=mock_client,
+        )
+
+        # Should detect a conflict since 5000 != 7500
+        assert "conflicts" in result
+        assert len(result["conflicts"]) == 1
+        assert result["conflicts"][0]["field_name"] == "event_detail.total_affected_population"
+
+    def test_no_conflict_with_empty_form_state(self):
+        """Test no conflicts when form state is empty."""
+        response = json.dumps({
+            "classification": "NEW_INFORMATION",
+            "reply": "Noted the flood.",
+            "field_updates": [
+                {"field_id": "operation_overview.disaster_type", "value": "Flood"},
+            ]
+        })
+        mock_client = self._create_mock_client(response)
+
+        result = process_user_input(
+            user_message="There was a flood",
+            enriched_form_state={},
+            client=mock_client,
+        )
+
+        assert result["conflicts"] == []
+        assert len(result["field_updates"]) == 1
+        # Enriched updates should have source and timestamp
+        assert "source" in result["field_updates"][0]
+        assert "timestamp" in result["field_updates"][0]
+        assert "field_id" in result["field_updates"][0]
