@@ -77,6 +77,8 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
     const [updateTracker, setUpdateTracker] = useState<Record<string, Record<string, TrackedFieldUpdate>>>({});
     const [conflictTracker, setConflictTracker] = useState<Record<string, Record<string, TrackedConflict>>>({});
+    const [chatSize, setChatSize] = useState({ width: 380, height: 520 });
+    const [isResizing, setIsResizing] = useState(false);
 
     // Refs to read latest state without stale closures
     const updateTrackerRef = useRef(updateTracker);
@@ -89,6 +91,33 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
     const fileInputRef = useRef<HTMLInputElement>(null);
     const createdUrlsRef = useRef<Set<string>>(new Set());
     const queuedUpdatesRef = useRef<Record<string, FieldUpdate[]>>({});
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsResizing(true);
+    };
+
+    useEffect(() => {
+        if (!isResizing) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const newWidth = Math.max(300, Math.min(1000, window.innerWidth - e.clientX));
+            const newHeight = Math.max(300, Math.min(1000, window.innerHeight - e.clientY));
+            setChatSize({ width: newWidth, height: newHeight });
+        };
+
+        const handleMouseUp = () => {
+            setIsResizing(false);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isResizing]);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -265,7 +294,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
             const hasPendingConflicts = Object.values(msgConflicts).some(c => c.resolution === "pending");
 
             if (!hasPendingConflicts) {
-                // All conflicts resolved! 
+                // All conflicts resolved!
                 // Group resolved "use_new" values and any queued non-conflicting updates
                 const resolvedUpdates: FieldUpdate[] = [];
                 for (const c of Object.values(msgConflicts)) {
@@ -579,7 +608,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                         <div
                             key={fieldId}
                             className={`flex items-center justify-between px-2 py-1.5 gap-2 ${tracked.status === "rejected" ? "opacity-50" : ""
-                                }`}
+                            }`}
                         >
                             <div className="flex-1 min-w-0">
                                 <span className="font-medium">{getFieldLabel(fieldId)}: </span>
@@ -716,9 +745,28 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
     };
 
     return (
-        <div className={`fixed bottom-20 right-6 z-50 flex h-[520px] w-[380px] flex-col rounded-xl border border-border bg-card shadow-2xl ${isOpen ? "" : "hidden"}`}>
+        <div
+            className={`fixed bottom-20 right-6 z-50 flex flex-col rounded-xl border border-border bg-card shadow-2xl ${isOpen ? "" : "hidden"}`}
+            style={{ width: `${chatSize.width}px`, height: `${chatSize.height}px` }}
+        >
             {/* Header */}
-            <div className="flex items-center justify-between rounded-t-xl bg-primary px-4 py-3">
+            <div className="relative flex items-center justify-between rounded-t-xl bg-primary px-4 py-3 overflow-hidden">
+                {/* Resize handle - top-left corner */}
+                <div
+                    onMouseDown={handleMouseDown}
+                    className="absolute -left-3 -top-3 h-8 w-8 rotate-45 overflow-hidden opacity-75 cursor-nwse-resize hover:opacity-30 transition-opacity"
+                >
+                    <div className="flex h-full w-full flex-col gap-0.5">
+                        <div className="h-1 bg-primary-foreground"></div>
+                        <div className="h-1 bg-transparent"></div>
+                        <div className="h-1 bg-primary-foreground"></div>
+                        <div className="h-1 bg-transparent"></div>
+                        <div className="h-1 bg-primary-foreground"></div>
+                        <div className="h-1 bg-transparent"></div>
+                        <div className="h-1 bg-primary-foreground"></div>
+                    </div>
+                </div>
+
                 <div className="flex items-center gap-2 text-primary-foreground">
                     <Bot className="h-5 w-5" />
                     <span className="font-semibold text-sm">DREF Assist</span>
@@ -738,13 +786,13 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                         <div
                             key={msg.id}
                             className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"
-                                }`}
+                            }`}
                         >
                             <div
                                 className={`group relative max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed ${msg.role === "user"
                                     ? "bg-primary text-primary-foreground"
                                     : "bg-muted text-foreground"
-                                    }`}
+                                }`}
                             >
                                 <div className="break-words prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-1.5">
                                     <ReactMarkdown>{msg.content}</ReactMarkdown>
@@ -784,7 +832,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                                     className={`absolute -right-7 top-1 rounded p-0.5 transition-opacity ${msg.saved
                                         ? "opacity-100 text-primary"
                                         : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary"
-                                        }`}
+                                    }`}
                                     title={msg.saved ? "Unsave" : "Save prompt"}
                                 >
                                     <Save className="h-3.5 w-3.5" />
@@ -798,11 +846,14 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                     {isTyping && (
                         <div className="flex items-start">
                             <div className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-                                <span className="inline-flex gap-1">
-                                    <span className="animate-bounce">·</span>
-                                    <span className="animate-bounce" style={{ animationDelay: "0.1s" }}>·</span>
-                                    <span className="animate-bounce" style={{ animationDelay: "0.2s" }}>·</span>
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex gap-1">
+                                        <div className="h-2 w-2 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></div>
+                                        <div className="h-2 w-2 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: '150ms', animationDuration: '1s' }}></div>
+                                        <div className="h-2 w-2 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: '300ms', animationDuration: '1s' }}></div>
+                                    </div>
+                                    <span>Response Generating...</span>
+                                </div>
                             </div>
                         </div>
                     )}

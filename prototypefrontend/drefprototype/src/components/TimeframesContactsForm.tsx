@@ -100,16 +100,16 @@ const TimeframesContactsForm = ({ onBack, onContinue, formState, onFieldChange }
       </FormField>
 
       {/* Navigation */}
-      <div className="flex items-center justify-between pt-4">
+      <div className="flex items-center justify-center gap-2 pt-4">
         <button
           onClick={onBack}
-          className="rounded border border-primary px-6 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+          className="rounded-full border border-primary px-5 py-1 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
         >
           Back
         </button>
         <button
           onClick={onContinue}
-          className="rounded bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+          className="rounded-full border border-primary px-5 py-1 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
         >
           Save
         </button>

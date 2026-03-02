@@ -14,7 +14,7 @@ const SharingSection = () => {
               The users will be able to view, edit and add other users.
             </p>
           </div>
-          <button className="flex items-center gap-1 rounded border border-primary px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
+          <button className="flex items-center gap-1 rounded-full border border-primary px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
             <Share2 className="h-3 w-3" /> Add
           </button>
         </div>

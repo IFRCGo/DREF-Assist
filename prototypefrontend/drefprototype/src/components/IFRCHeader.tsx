@@ -20,16 +20,16 @@ const IFRCHeader = () => {
     {/* Top bar */}
     <div className="border-b border-border bg-card">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-2">
-          {/* IFRC Logo placeholder */}
           <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
-              <span className="text-sm font-bold text-primary-foreground">GO</span>
-            </div>
-            <span className="text-lg font-bold text-primary font-heading">+IFRC+
-            </span>
+              {/* IFRC Logo */}
+              <div className="flex items-center gap-2">
+                  <img
+                      src="/go-logo-2020.svg"
+                      alt="IFRC GO"
+                      className="h-10 w-auto"
+                  />
+              </div>
           </div>
-        </div>
         <div className="flex items-center gap-4 text-sm">
           <button className="flex items-center gap-1 text-foreground">
             English <ChevronDown className="h-3 w-3" />
@@ -37,7 +37,7 @@ const IFRCHeader = () => {
           <button className="flex items-center gap-1 text-foreground">
             Team 24 <ChevronDown className="h-3 w-3" />
           </button>
-          <button className="rounded border border-primary px-4 py-1.5 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
+          <button className="rounded-full border border-primary px-4 py-1.5 text-sm font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
             Create a Report →
           </button>
         </div>
