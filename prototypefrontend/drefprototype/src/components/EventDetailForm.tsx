@@ -42,7 +42,7 @@ const EventDetailForm = ({ onBack, onContinue, formState, onFieldChange }: Event
             <div>
               <p className="mb-1 text-xs text-muted-foreground">Total affected population</p>
               <input
-                type="text"
+                type="number"
                 value={field("event_detail.total_affected_population")}
                 onChange={change("event_detail.total_affected_population")}
                 className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -51,7 +51,7 @@ const EventDetailForm = ({ onBack, onContinue, formState, onFieldChange }: Event
             <div>
               <p className="mb-1 text-xs text-muted-foreground">People in need (Optional)</p>
               <input
-                type="text"
+                type="number"
                 value={field("event_detail.people_in_need")}
                 onChange={change("event_detail.people_in_need")}
                 className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -69,7 +69,7 @@ const EventDetailForm = ({ onBack, onContinue, formState, onFieldChange }: Event
               <div>
                 <p className="mb-1 text-xs text-muted-foreground">Estimated male affected</p>
                 <input
-                  type="text"
+                  type="number"
                   value={field("event_detail.estimated_male_affected")}
                   onChange={change("event_detail.estimated_male_affected")}
                   className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -78,7 +78,7 @@ const EventDetailForm = ({ onBack, onContinue, formState, onFieldChange }: Event
               <div>
                 <p className="mb-1 text-xs text-muted-foreground">Estimated female affected</p>
                 <input
-                  type="text"
+                  type="number"
                   value={field("event_detail.estimated_female_affected")}
                   onChange={change("event_detail.estimated_female_affected")}
                   className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -89,7 +89,7 @@ const EventDetailForm = ({ onBack, onContinue, formState, onFieldChange }: Event
               <div>
                 <p className="mb-1 text-xs text-muted-foreground">Estimated Girls (under 18)</p>
                 <input
-                  type="text"
+                  type="number"
                   value={field("event_detail.estimated_girls_under_18")}
                   onChange={change("event_detail.estimated_girls_under_18")}
                   className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -98,7 +98,7 @@ const EventDetailForm = ({ onBack, onContinue, formState, onFieldChange }: Event
               <div>
                 <p className="mb-1 text-xs text-muted-foreground">Estimated Boys (under 18)</p>
                 <input
-                  type="text"
+                  type="number"
                   value={field("event_detail.estimated_boys_under_18")}
                   onChange={change("event_detail.estimated_boys_under_18")}
                   className="w-full rounded border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -125,7 +125,7 @@ const EventDetailForm = ({ onBack, onContinue, formState, onFieldChange }: Event
           label="Source Information"
           description="Add the links and the name of the sources, the name will be shown in the export, as a hyperlink."
         >
-          <button className="flex items-center gap-2 rounded border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
+          <button className="flex items-center gap-2 rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
             <Plus className="h-4 w-4" />
             Add New Source Information
           </button>
@@ -143,13 +143,13 @@ const EventDetailForm = ({ onBack, onContinue, formState, onFieldChange }: Event
       <div className="mt-8 flex items-center justify-center gap-3">
         <button
           onClick={onBack}
-          className="rounded border border-primary px-6 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+          className="rounded-full border border-primary px-5 py-1 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
         >
           Back
         </button>
         <button
           onClick={onContinue}
-          className="rounded bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+          className="rounded-full border border-primary px-5 py-1 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
         >
           Continue
         </button>

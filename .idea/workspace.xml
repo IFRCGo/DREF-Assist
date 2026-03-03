@@ -5,7 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5323c418-65b6-4418-a705-1333add3c3c3" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/prototypefrontend/drefprototype/public/go-logo-2020.svg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/ActionsNeedsForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/ActionsNeedsForm.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/DREFAssistChat.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/DREFAssistChat.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/EssentialInformationForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/EssentialInformationForm.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/EventDetailForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/EventDetailForm.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/IFRCHeader.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/IFRCHeader.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/ImageUploadButton.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/ImageUploadButton.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/OperationForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/OperationForm.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/StepIndicator.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/StepIndicator.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/TimeframesContactsForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/components/TimeframesContactsForm.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/pages/Index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/prototypefrontend/drefprototype/src/pages/Index.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -13,6 +24,11 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="feature/UI" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="SYNC" />
     <option name="UPDATE_TYPE" value="REBASE" />
@@ -41,31 +57,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;prototype/frontend&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/brendanloo/IdeaProjects/DREF-Assist&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_interpreter_path&quot;: &quot;node&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;settings.nodejs&quot;,
-    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/Users/brendanloo/Library/Application Support/JetBrains/IntelliJIdea2025.2/plugins/javascript-plugin/jsLanguageServicesImpl/external&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "feature/UI-2",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "/Users/brendanloo/IdeaProjects/DREF-Assist/prototypefrontend/drefprototype/public",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_interpreter_path": "node",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "settings.nodejs",
+    "to.speed.mode.migration.done": "true",
+    "ts.external.directory.path": "/Users/brendanloo/Library/Application Support/JetBrains/IntelliJIdea2025.2/plugins/javascript-plugin/jsLanguageServicesImpl/external",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/prototypefrontend/drefprototype/public" />
       <recent name="$PROJECT_DIR$/PrototypeFrontend/public" />
     </key>
     <key name="MoveFile.RECENT_KEYS">

@@ -119,26 +119,26 @@ const Index = () => {
       <IFRCHeader />
 
       {/* Page content */}
-      <main className="mx-auto max-w-4xl px-4 py-6">
+      <main className="mx-auto max-w-7xl px-4 py-6">
         {/* Top actions */}
         <div className="mb-4 flex justify-end gap-2">
-          <button className="rounded border border-primary px-4 py-1.5 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
+          <button className="rounded-full border border-primary px-4 py-1.5 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
             Import
           </button>
-          <button className="rounded bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
+          <button className="rounded-full border border-primary px-4 py-1.5 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
             Save
           </button>
           <button
             onClick={handleEvaluate}
             disabled={evaluationLoading}
-            className="flex items-center gap-1.5 rounded border border-primary px-4 py-1.5 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-full border border-primary px-4 py-1.5 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-50"
           >
             <ClipboardCheck className="h-4 w-4" />
             Evaluate
           </button>
           <button
             onClick={() => setChatOpen((o) => !o)}
-            className="flex items-center gap-1.5 rounded bg-accent px-4 py-1.5 text-sm font-semibold text-accent-foreground hover:opacity-90 transition-opacity"
+            className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-accent-foreground hover:opacity-90 transition-opacity"
           >
             <Bot className="h-4 w-4" />
             DREF Assist

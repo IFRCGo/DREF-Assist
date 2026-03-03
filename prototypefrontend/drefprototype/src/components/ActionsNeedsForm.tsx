@@ -231,7 +231,7 @@ const ActionsNeedsForm = ({ onBack, onContinue, formState, onFieldChange }: Acti
         <FormField label="Needs identified">
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">Select the needs that apply.</p>
-            <button className="flex items-center gap-2 rounded border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
+            <button className="flex items-center gap-2 rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
               <Plus className="h-4 w-4" />
               Add
             </button>
@@ -261,13 +261,13 @@ const ActionsNeedsForm = ({ onBack, onContinue, formState, onFieldChange }: Acti
       <div className="mt-8 flex items-center justify-center gap-3">
         <button
           onClick={onBack}
-          className="rounded border border-primary px-6 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+          className="rounded-full border border-primary px-5 py-1 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
         >
           Back
         </button>
         <button
           onClick={onContinue}
-          className="rounded bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+          className="rounded-full border border-primary px-5 py-1 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
         >
           Continue
         </button>

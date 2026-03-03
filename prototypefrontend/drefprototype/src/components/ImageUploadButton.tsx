@@ -41,7 +41,7 @@ const ImageUploadButton = ({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex items-center gap-2 rounded border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+          className="flex items-center gap-2 rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
           disabled={files.length >= maxFiles}
         >
           <ImagePlus className="h-4 w-4" />
@@ -67,7 +67,7 @@ const ImageUploadButton = ({
               <img
                 src={file.url}
                 alt={file.name}
-                className="h-20 w-20 rounded border border-border object-cover"
+                className="h-20 w-20 rounded-full border border-border object-cover"
               />
               <button
                 type="button"
