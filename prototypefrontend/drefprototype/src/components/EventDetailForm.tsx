@@ -29,7 +29,7 @@ const EventDetailForm = ({ onBack, onContinue, formState, onFieldChange }: Event
       <div className="space-y-4">
         <FormField label="Date when the trigger was met">
           <input
-            type="text"
+            type="date"
             value={field("event_detail.date_trigger_met")}
             onChange={change("event_detail.date_trigger_met")}
             placeholder="dd/mm/yyyy"

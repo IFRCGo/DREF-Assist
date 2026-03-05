@@ -106,13 +106,13 @@ export default function FinalEvaluationDialog({
             <div className="flex items-center gap-3 mt-2">
               <button
                 onClick={onViewDetails}
-                className="rounded border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+                className="rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
               >
                 View Details
               </button>
               <button
                 onClick={onDone}
-                className="rounded bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+                className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
               >
                 Done
               </button>
