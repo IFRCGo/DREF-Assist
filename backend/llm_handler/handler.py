@@ -8,13 +8,22 @@ prompt construction, API calls, and response processing.
 import os
 from typing import Dict, Any, List, Optional, Union
 
-from openai import AzureOpenAI
+from openai import AzureOpenAI, BadRequestError
 from dotenv import load_dotenv
 
 from .prompt import build_system_prompt
 from .parser import process_llm_response
 
 load_dotenv()
+
+_CONTENT_FILTER_RESPONSE: Dict[str, Any] = {
+    "classification": "OFF_TOPIC",
+    "reply": (
+        "I'm not able to help with that request. "
+        "Please ask something related to the DREF application."
+    ),
+    "field_updates": [],
+}
 
 # Type alias for message content (text string or multimodal list from media-processor)
 MessageContent = Union[str, List[Dict[str, Any]]]
@@ -69,13 +78,20 @@ def handle_message(
 
     messages.append({"role": "user", "content": user_message})
 
-    response = client.chat.completions.create(
-        model=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
-        messages=messages,
-        temperature=0.1,
-        response_format={"type": "json_object"},
-    )
+    try:
+        response = client.chat.completions.create(
+            model=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
+            messages=messages,
+            temperature=0.1,
+            response_format={"type": "json_object"},
+        )
+    except BadRequestError:
+        # Azure content management policy rejected the prompt
+        return _CONTENT_FILTER_RESPONSE.copy()
 
+    # Content filter may allow the request but redact the response
     raw_response = response.choices[0].message.content
+    if raw_response is None:
+        return _CONTENT_FILTER_RESPONSE.copy()
 
     return process_llm_response(raw_response)
