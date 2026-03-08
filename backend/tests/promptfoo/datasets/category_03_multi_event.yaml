@@ -1,0 +1,60 @@
+# Category 3: Complex Multi-Event Scenarios
+# Tests 3.1, 3.2
+
+# Test 3.1 — Cascading Disasters / Double-Counting
+- vars:
+    test_input: >
+      March 1: flood Region A, 2,000. March 3: landslides Region B, 1,500 more.
+      March 5: bridge collapse Region C, 800 more. March 7: cholera in
+      Region A, 500 of original flood victims.
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      Total unique = 4,300. Cholera 500 flagged as subset of original 2,000.
+      Show calculation.
+    ground_truth: |
+      Extractable fields and correct values:
+      - event_detail.total_affected_population: 4300 (integer)
+      - operation_overview.disaster_type: "Flood" (primary disaster)
+
+      Fields that must remain null:
+      - operation_overview.country (not specified)
+      - operation.requested_amount_chf (not mentioned)
+
+      Required behaviours:
+      - Cholera 500 flagged as secondary/subset of flood victims (not additive)
+      - No double-counting: 2000 + 1500 + 800 = 4300 (cholera is subset)
+      - Calculation shown or explained in reply
+  metadata:
+    test_id: "3.1"
+    category: "Budget and numeric calculation"
+    threshold: "22/25"
+
+# Test 3.2 — Simultaneous Unrelated Events
+- vars:
+    test_input: >
+      Three emergencies: Flood Bangladesh 3,000. Earthquake Nepal 1,200.
+      Drought Somalia 5,000. Need help with all three.
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      Recognise one DREF = one disaster. Ask which disaster this
+      application is for.
+    ground_truth: |
+      Extractable fields and correct values:
+      - (none — all pending clarification on which disaster)
+
+      Fields that must remain null:
+      - operation_overview.country (three options — needs clarification)
+      - operation_overview.disaster_type (three options — needs clarification)
+      - event_detail.total_affected_population (depends on which disaster)
+
+      Required behaviours:
+      - Clarification question asked: which disaster is this DREF for?
+      - No fields populated before clarification
+      - Events not merged or averaged
+      - All three disasters mentioned in reply
+  metadata:
+    test_id: "3.2"
+    category: "Contradiction and conflict handling"
+    threshold: "20/25"

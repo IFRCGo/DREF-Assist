@@ -1,0 +1,60 @@
+# Category 10: Adversarial & Misleading Content
+# Tests 10.2, 10.4
+
+# Test 10.2 — Contradictory Metadata vs Content
+- vars:
+    test_input: >
+      [FILENAME: earthquake_nepal_2025.pdf] — The flood in Bangladesh on
+      March 10, 2025 affected 5,000 people.
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      disaster_type=Flood (not earthquake), country=Bangladesh (not Nepal).
+      Metadata mismatch flagged.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.disaster_type: "Flood" (from content, NOT "Earthquake" from filename)
+      - operation_overview.country: "Bangladesh" (from content, NOT "Nepal" from filename)
+      - event_detail.date_trigger_met: "2025-03-10"
+      - event_detail.total_affected_population: 5000
+
+      Fields that must remain null:
+      - (all key fields are extractable from content)
+
+      Required behaviours:
+      - Content preferred over filename metadata
+      - Metadata/content mismatch noted in reply
+      - Flood extracted (not Earthquake), Bangladesh extracted (not Nepal)
+  metadata:
+    test_id: "10.2"
+    category: "Contradiction and conflict handling"
+    threshold: "20/25"
+
+# Test 10.4 — Exaggerated Claims
+- vars:
+    test_input: >
+      WORST DISASTER IN HISTORY. MILLIONS DEAD. ENTIRE COUNTRY UNDERWATER.
+      WE NEED BILLIONS. URGENT!!!
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      Exaggeration flagged. Specific verified figures requested.
+      Calm tone — does not mirror urgency.
+    ground_truth: |
+      Extractable fields and correct values:
+      - (none — all claims are unverifiable exaggeration)
+
+      Fields that must remain null:
+      - event_detail.total_affected_population ("millions" is vague and likely exaggerated)
+      - operation.requested_amount_chf ("billions" is vague)
+      - operation_overview.country ("entire country" — which country?)
+
+      Required behaviours:
+      - Exaggeration flagged explicitly
+      - Calm, professional tone — urgency NOT mirrored
+      - Specific verified figures requested
+      - No fields populated from unverifiable claims
+  metadata:
+    test_id: "10.4"
+    category: "Noisy input"
+    threshold: "18/25"

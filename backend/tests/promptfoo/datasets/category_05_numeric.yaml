@@ -1,0 +1,83 @@
+# Category 5: Numeric Confusion & Units
+# Tests 5.1, 5.2, 5.3
+
+# Test 5.1 — Mixed Numeric Formats (Tier 2 component)
+- vars:
+    test_input: >
+      5k people affected. Budget 250K CHF. 3.5 thousand families.
+      Need $200,000 USD — about €185,000 or 180,000 CHF.
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      5k→5000, 250K→250000, 3.5 thousand→3500. Use CHF (180,000).
+      Do not sum all currencies.
+    ground_truth: |
+      Extractable fields and correct values:
+      - event_detail.total_affected_population: 5000
+      - operation.requested_amount_chf: 180000
+
+      Fields that must remain null:
+      - operation_overview.country (not specified)
+      - operation_overview.disaster_type (not specified)
+
+      Required behaviours:
+      - Informal notation (5k, 250K, 3.5 thousand) correctly parsed
+      - CHF figure used for budget (180,000), not USD or EUR
+      - Currencies not summed or averaged
+  metadata:
+    test_id: "5.1"
+    category: "Budget and numeric calculation"
+    threshold: "22/25"
+
+# Test 5.2 — Percentage Conversion
+- vars:
+    test_input: >
+      80% of village affected. Village population: 2,500.
+      60% of people need immediate shelter.
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      80% of 2,500 = 2,000 affected. 60% of 2,000 = 1,200 need shelter.
+      Show calculations.
+    ground_truth: |
+      Extractable fields and correct values:
+      - event_detail.total_affected_population: 2000
+      - operation.targeted_total: 1200
+
+      Fields that must remain null:
+      - operation_overview.country (not specified)
+
+      Required behaviours:
+      - Percentage calculations shown (80% × 2500 = 2000, 60% × 2000 = 1200)
+      - Both results clearly explained
+  metadata:
+    test_id: "5.2"
+    category: "Budget and numeric calculation"
+    threshold: "22/25"
+
+# Test 5.3 — Ranges and Approximations
+- vars:
+    test_input: >
+      Between 5,000 and 7,000 affected. Around 1,200–1,800 need shelter.
+      Budget CHF 200,000 to 300,000.
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      Preserve ranges. Note midpoints. Flag all as approximate.
+    ground_truth: |
+      Extractable fields and correct values:
+      - event_detail.total_affected_population: range 5000-7000 (approximate)
+      - operation.targeted_total: range 1200-1800 (approximate)
+      - operation.requested_amount_chf: range 200000-300000 (approximate)
+
+      Fields that must remain null:
+      - operation_overview.country (not specified)
+
+      Required behaviours:
+      - Ranges preserved (not averaged to single value)
+      - All values flagged as approximate
+      - User asked to confirm specific numbers
+  metadata:
+    test_id: "5.3"
+    category: "Noisy input"
+    threshold: "18/25"

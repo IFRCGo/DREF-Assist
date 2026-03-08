@@ -1,0 +1,96 @@
+# Category 9: Unstructured & Chaotic Format
+# Tests 9.1, 9.2, 9.3
+
+# Test 9.1 — Stream of Consciousness
+- vars:
+    test_input: >
+      so yeah there was this flood and like it happened last week I think...
+      maybe 5000 or was it 7000... Bangladesh I forgot to mention... need
+      200000 or something...
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      Location=Bangladesh, Disaster=Flood, Affected=5000-7000 (uncertain),
+      Budget=~CHF 200,000 (estimated). All flagged uncertain.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.country: "Bangladesh"
+      - operation_overview.disaster_type: "Flood"
+      - event_detail.total_affected_population: range 5000-7000 (uncertain)
+      - operation.requested_amount_chf: ~200000 (estimated)
+
+      Fields that must remain null:
+      - event_detail.date_trigger_met ("last week" is too vague)
+
+      Required behaviours:
+      - All extracted values marked as approximate/uncertain
+      - Confirmation requested for population range
+      - Budget noted as estimate
+  metadata:
+    test_id: "9.1"
+    category: "Noisy input"
+    threshold: "18/25"
+
+# Test 9.2 — Decontextualised Bullet Points
+- vars:
+    test_input: |
+      - 5,000
+      - March 10
+      - Flood
+      - Bangladesh
+      - CHF
+      - 90 days
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      Extract unambiguous: disaster_type=Flood, country=Bangladesh.
+      Request context for: 5,000 (what?), CHF (what amount?).
+      Do not assume all mappings.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.disaster_type: "Flood"
+      - operation_overview.country: "Bangladesh"
+
+      Fields that must remain null:
+      - event_detail.total_affected_population (5000 context unclear — affected? targeted?)
+      - operation.requested_amount_chf ("CHF" without an amount)
+      - event_detail.date_trigger_met ("March 10" without year or context)
+
+      Required behaviours:
+      - Only unambiguous fields populated
+      - Context requested for ambiguous items (5000, CHF, 90 days)
+      - Not all bullet points assumed to map to specific fields
+  metadata:
+    test_id: "9.2"
+    category: "Noisy input"
+    threshold: "18/25"
+
+# Test 9.3 — Narrative Format
+- vars:
+    test_input: >
+      It was a dark and stormy night... By the time the sun rose on March 11th,
+      approximately 3,500 people had lost their homes. The government declared
+      a state of emergency.
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      Disaster=Flood (inferred from stormy night), Date=~March 10-11,
+      Affected=3,500. Location not specified — flag and request.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.disaster_type: "Flood" (inferred from storm context)
+      - event_detail.date_trigger_met: "2025-03-10" or "2025-03-11" (approximate)
+      - event_detail.total_affected_population: 3500
+
+      Fields that must remain null:
+      - operation_overview.country (not specified)
+      - operation_overview.region_province (not specified)
+
+      Required behaviours:
+      - Location requested (country not mentioned)
+      - Disaster type inferred from narrative context
+      - Government emergency declaration noted
+  metadata:
+    test_id: "9.3"
+    category: "Noisy input"
+    threshold: "18/25"

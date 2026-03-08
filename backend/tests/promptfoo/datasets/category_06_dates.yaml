@@ -1,0 +1,55 @@
+# Category 6: Date & Time Ambiguities
+# Tests 6.1, 6.3
+
+# Test 6.1 — Relative Dates
+- vars:
+    test_input: >
+      Flood started last week. Response began three days ago.
+      [Context: today is March 15, 2025]
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      'last week' → ~March 8. 'Three days ago' → March 12.
+      If date unknown, request it.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.disaster_type: "Flood"
+      - event_detail.date_trigger_met: "2025-03-08" (approximate, from "last week")
+
+      Fields that must remain null:
+      - operation_overview.country (not specified)
+
+      Required behaviours:
+      - Relative terms converted to approximate dates
+      - Approximation noted in reply
+      - Date confirmation requested if context date uncertain
+  metadata:
+    test_id: "6.1"
+    category: "Language and geographic"
+    threshold: "20/25"
+
+# Test 6.3 — Multiple Time Zones
+- vars:
+    test_input: >
+      Earthquake struck at 2:30 PM local time March 10th. Alert at 14:45 UTC.
+      Response arrived 3:00 AM EST March 11th.
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      Use local time for disaster. No date confusion from timezone conversion.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.disaster_type: "Earthquake"
+      - event_detail.date_trigger_met: "2025-03-10"
+
+      Fields that must remain null:
+      - operation_overview.country (not specified)
+
+      Required behaviours:
+      - Local date (March 10) used for disaster date
+      - Date not changed by timezone arithmetic
+      - Time references not confused with different dates
+  metadata:
+    test_id: "6.3"
+    category: "Noisy input"
+    threshold: "18/25"

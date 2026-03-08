@@ -17,3 +17,6 @@ htmlcov/
 # Virtual environments
 .venv/
 venv/
+
+# LLM test results (generated artifacts)
+tests/results/
