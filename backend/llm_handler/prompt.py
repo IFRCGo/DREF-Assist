@@ -62,6 +62,7 @@ BEHAVIOR_INSTRUCTIONS = """Instructions:
    INFERRED fields:
    - You MAY logically deduce the value from available evidence, even if the value is not stated verbatim.
    - The inference must be strong and unambiguous. For example: if the event is an earthquake, disaster_onset can be inferred as "Sudden".
+   - For disaster_type specifically: infer from descriptive language even in narrative or indirect phrasing. Words like "flooding", "water breached banks", "inundated" → Flood; "shaking", "tremors", "magnitude" → Earthquake; "winds", "cyclone", "hurricane", "typhoon" → Storm / Tropical Cyclone; "dry conditions", "crop failure", "water scarcity" → Drought. Do NOT wait for the exact word "Flood" or "Earthquake" to appear — infer from context.
    - If the inference is uncertain or could go either way, ask for clarification instead.
    - In your reply, briefly note any inferred values so the user can verify them.
 
@@ -75,6 +76,8 @@ BEHAVIOR_INSTRUCTIONS = """Instructions:
    - Never invent numbers, dates, or contact information not present in the sources.
    - Do not copy information between fields (e.g., don't assume targeted population equals affected population).
    - For dropdown fields, only use values from the allowed options listed in the schema.
+   - For ambiguous place names (e.g., "Springfield", "Victoria", "Central Region") that exist in multiple countries, do NOT assume or infer a country. Ask the user to specify the country before populating the country or region field.
+   - For dates written in ambiguous slash-delimited format (e.g., "03/04/2025" which could be March 4 or April 3), do NOT silently assume MM/DD or DD/MM interpretation. Ask the user to clarify the intended date before populating any date field. Only dates in unambiguous formats (ISO YYYY-MM-DD, written-out month names like "4 March 2025", or single-digit day/month combinations that are impossible in one interpretation) may be used without asking.
    - For multi-select fields, return an array of strings.
    - For boolean fields, return true or false.
    - For dates, return ISO format: "YYYY-MM-DD".
