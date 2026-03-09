@@ -13,11 +13,11 @@ class TestDOCXHandler:
         mock_doc = MagicMock()
         mock_para1 = MagicMock()
         mock_para1.text = "First paragraph."
-        mock_para1._element.xpath.return_value = []  # No inline shapes
+        mock_para1._element.findall.return_value = []  # No inline shapes
 
         mock_para2 = MagicMock()
         mock_para2.text = "Second paragraph."
-        mock_para2._element.xpath.return_value = []
+        mock_para2._element.findall.return_value = []
 
         mock_doc.paragraphs = [mock_para1, mock_para2]
         mock_doc.tables = []
@@ -79,7 +79,7 @@ class TestDOCXHandler:
 
         mock_para = MagicMock()
         mock_para.text = "Before table."
-        mock_para._element.xpath.return_value = []
+        mock_para._element.findall.return_value = []
 
         # Mock table
         mock_cell1 = MagicMock()
