@@ -12,9 +12,6 @@ class DOCXHandler:
     """Handler for DOCX files."""
 
     MAX_SIZE_BYTES = 25 * 1024 * 1024  # 25MB
-    DRAWING_NS = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
-    BLIP_NS = "{http://schemas.openxmlformats.org/drawingml/2006/main}blip"
-    EMBED_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed"
 
     def process(self, file_input: FileInput, source_index: int) -> SourceResult:
         """Process a DOCX file.
@@ -65,9 +62,9 @@ class DOCXHandler:
                 para_text = para.text.strip()
 
                 # Check for inline images in this paragraph
-                inline_shapes = para._element.xpath('.//a:blip', namespaces={
-                    'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'
-                })
+                inline_shapes = para._element.findall(
+                    './/' + qn('a:blip')
+                )
 
                 for blip in inline_shapes:
                     embed_attr = blip.get(qn('r:embed'))

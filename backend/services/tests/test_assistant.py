@@ -319,3 +319,117 @@ class TestProcessUserInput:
         assert "source" in result["field_updates"][0]
         assert "timestamp" in result["field_updates"][0]
         assert "field_id" in result["field_updates"][0]
+
+    @patch("services.assistant.MediaProcessor")
+    @patch("services.assistant.format_for_llm")
+    def test_per_document_source_propagated(self, mock_format, mock_processor_class):
+        """Test that per-update source from LLM is preserved in enriched updates."""
+        mock_processor = MagicMock()
+        mock_processor_class.return_value = mock_processor
+        mock_processing_result = MagicMock()
+        mock_processing_result.processing_summary.total_files = 2
+        mock_processing_result.processing_summary.successful = 2
+        mock_processing_result.processing_summary.failed = 0
+        mock_processor.process.return_value = mock_processing_result
+
+        mock_format.return_value = {"role": "user", "content": [{"type": "text", "text": "Combined"}]}
+
+        response = json.dumps({
+            "classification": "NEW_INFORMATION",
+            "reply": "Extracted from both documents.",
+            "field_updates": [
+                {"field_id": "operation_overview.country", "value": "Sudan", "source": "report.pdf"},
+                {"field_id": "operation_overview.disaster_type", "value": "Flood", "source": "assessment.docx"},
+            ]
+        })
+        mock_client = self._create_mock_client(response)
+
+        result = process_user_input(
+            user_message="Extract info from both.",
+            enriched_form_state={},
+            files=[
+                {"data": "pdf1", "type": "pdf", "filename": "report.pdf"},
+                {"data": "docx1", "type": "docx", "filename": "assessment.docx"},
+            ],
+            client=mock_client,
+        )
+
+        updates = {u["field_id"]: u["source"] for u in result["field_updates"]}
+        assert updates["operation_overview.country"] == "report.pdf"
+        assert updates["operation_overview.disaster_type"] == "assessment.docx"
+
+    @patch("services.assistant.MediaProcessor")
+    @patch("services.assistant.format_for_llm")
+    def test_fallback_source_when_llm_omits_source(self, mock_format, mock_processor_class):
+        """Test that fallback source is used when LLM doesn't include per-update source."""
+        mock_processor = MagicMock()
+        mock_processor_class.return_value = mock_processor
+        mock_processing_result = MagicMock()
+        mock_processing_result.processing_summary.total_files = 2
+        mock_processing_result.processing_summary.successful = 2
+        mock_processing_result.processing_summary.failed = 0
+        mock_processor.process.return_value = mock_processing_result
+
+        mock_format.return_value = {"role": "user", "content": [{"type": "text", "text": "Combined"}]}
+
+        response = json.dumps({
+            "classification": "NEW_INFORMATION",
+            "reply": "Extracted.",
+            "field_updates": [
+                {"field_id": "operation_overview.country", "value": "Sudan"},
+            ]
+        })
+        mock_client = self._create_mock_client(response)
+
+        result = process_user_input(
+            user_message="Extract info.",
+            enriched_form_state={},
+            files=[
+                {"data": "pdf1", "type": "pdf", "filename": "report.pdf"},
+                {"data": "docx1", "type": "docx", "filename": "assessment.docx"},
+            ],
+            client=mock_client,
+        )
+
+        assert result["field_updates"][0]["source"] == "report.pdf, assessment.docx"
+
+    @patch("services.assistant.MediaProcessor")
+    @patch("services.assistant.format_for_llm")
+    def test_conflict_shows_per_document_source(self, mock_format, mock_processor_class):
+        """Test that conflicts against existing state show per-document source."""
+        mock_processor = MagicMock()
+        mock_processor_class.return_value = mock_processor
+        mock_processing_result = MagicMock()
+        mock_processing_result.processing_summary.total_files = 1
+        mock_processing_result.processing_summary.successful = 1
+        mock_processing_result.processing_summary.failed = 0
+        mock_processor.process.return_value = mock_processing_result
+
+        mock_format.return_value = {"role": "user", "content": [{"type": "text", "text": "Content"}]}
+
+        response = json.dumps({
+            "classification": "NEW_INFORMATION",
+            "reply": "Found different number.",
+            "field_updates": [
+                {"field_id": "event_detail.total_affected_population", "value": 15000, "source": "assessment.docx"},
+            ]
+        })
+        mock_client = self._create_mock_client(response)
+
+        result = process_user_input(
+            user_message="Extract info.",
+            enriched_form_state={
+                "event_detail.total_affected_population": {
+                    "value": 12500,
+                    "source": "report.pdf",
+                    "timestamp": "2026-03-09T00:00:00Z",
+                }
+            },
+            files=[{"data": "docx1", "type": "docx", "filename": "assessment.docx"}],
+            client=mock_client,
+        )
+
+        assert len(result["conflicts"]) == 1
+        conflict = result["conflicts"][0]
+        assert conflict["existing_value"]["source"] == "report.pdf"
+        assert conflict["new_value"]["source"] == "assessment.docx"
