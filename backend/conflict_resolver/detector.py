@@ -151,13 +151,13 @@ class ConflictDetector:
                         field_label=self.field_labels.get(field_name, field_name),
                         existing_value=FieldValue(
                             value=group[0].get("value"),
-                            source=group[0].get("source", source),
+                            source=group[0].get("source") or source,
                             timestamp=timestamp,
                             message_id=message_id,
                         ),
                         new_value=FieldValue(
                             value=group[i].get("value"),
-                            source=group[i].get("source", source),
+                            source=group[i].get("source") or source,
                             timestamp=timestamp,
                             message_id=message_id,
                         ),
@@ -192,7 +192,7 @@ class ConflictDetector:
                     existing_value=existing_field_value,
                     new_value=FieldValue(
                         value=new_value,
-                        source=source,
+                        source=update.get("source") or source,
                         timestamp=timestamp,
                         message_id=message_id
                     ),
