@@ -165,3 +165,34 @@ class TestConflictingDocuments:
             f"Expected conflict for total_affected_population. Got conflicts: {conflict_fields}. "
             f"Updates: {response.get('field_updates', [])}"
         )
+
+    def test_within_batch_cross_document_conflicts(self):
+        """Two documents with conflicting data in a SINGLE prompt, empty form state."""
+        docx1_b64, docx1_name = generate_flood_report_docx()
+        docx2_b64, docx2_name = generate_conflicting_assessment_docx()
+
+        response = process_user_input(
+            user_message="Extract all DREF information from both documents. Note any differences.",
+            enriched_form_state={},
+            files=[
+                {"data": docx1_b64, "type": "docx", "filename": docx1_name},
+                {"data": docx2_b64, "type": "docx", "filename": docx2_name},
+            ],
+        )
+
+        assert response.get("processing_summary", {}).get("successful") == 2
+
+        # Should detect within-batch conflicts for fields with different values
+        conflicts = response.get("conflicts", [])
+        conflict_fields = [c["field_name"] for c in conflicts]
+        assert "event_detail.total_affected_population" in conflict_fields, (
+            f"Expected within-batch conflict for total_affected_population. "
+            f"Conflicts: {conflict_fields}. Updates: {response.get('field_updates', [])}"
+        )
+
+        # Verify per-document source attribution in conflicts
+        pop_conflict = next(c for c in conflicts if c["field_name"] == "event_detail.total_affected_population")
+        sources = {pop_conflict["existing_value"]["source"], pop_conflict["new_value"]["source"]}
+        assert docx1_name in sources or docx2_name in sources, (
+            f"Conflict sources should reference document filenames. Got: {sources}"
+        )
