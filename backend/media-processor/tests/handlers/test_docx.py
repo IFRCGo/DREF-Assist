@@ -50,8 +50,8 @@ class TestDOCXHandler:
         mock_qn.return_value = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed"
         mock_blip.get.return_value = "rId1"
 
-        # The xpath returns blip elements directly
-        mock_para._element.xpath.return_value = [mock_blip]
+        # The findall returns blip elements directly
+        mock_para._element.findall.return_value = [mock_blip]
 
         # Mock image part
         mock_image_part = MagicMock()
@@ -134,3 +134,41 @@ class TestDOCXHandler:
         result = handler.process(file_input, source_index=1)
 
         assert result.error is not None
+
+
+def test_end_to_end_docx_with_known_content():
+    """Generate a real DOCX with known disaster data and verify extraction."""
+    from docx import Document
+    import base64
+    import io
+    from media_processor.models import FileInput
+    from media_processor.handlers.docx import DOCXHandler
+
+    doc = Document()
+    doc.add_heading("Sudan Flood Situation Report", level=1)
+    doc.add_paragraph("The flooding in Blue Nile State affected 12,500 people. 45 people were reported deceased.")
+    doc.add_paragraph("The Sudan Red Crescent Society deployed 30 volunteers.")
+
+    table = doc.add_table(rows=3, cols=2)
+    table.cell(0, 0).text = "Total Affected"
+    table.cell(0, 1).text = "12,500"
+    table.cell(1, 0).text = "Deceased"
+    table.cell(1, 1).text = "45"
+    table.cell(2, 0).text = "Disaster Type"
+    table.cell(2, 1).text = "Flood"
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    b64 = base64.b64encode(buf.getvalue()).decode()
+
+    handler = DOCXHandler()
+    result = handler.process(
+        FileInput(data=b64, type="docx", filename="sudan_sitrep.docx"),
+        source_index=1,
+    )
+
+    assert result.error is None
+    assert "12,500" in result.text_content
+    assert "45" in result.text_content
+    assert "Sudan Red Crescent" in result.text_content
+    assert "Flood" in result.text_content
