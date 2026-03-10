@@ -1,8 +1,0 @@
-{
-    "namespace": "drefApplicationForm",
-    "strings": {
-        "drefFormIndicatorTitleLabel": "Title",
-        "drefFormIndicatorTargetLabel": "Target",
-        "drefIndicatorRemoveButtonLabel": "Remove"
-    }
-}

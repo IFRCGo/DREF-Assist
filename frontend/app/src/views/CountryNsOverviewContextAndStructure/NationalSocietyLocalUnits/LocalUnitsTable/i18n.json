@@ -1,9 +1,0 @@
-{
-    "namespace": "countryNsOverviewContextAndStructure",
-    "strings": {
-        "localUnitsTableName": "Name",
-        "localUnitsTableAddress": "Address",
-        "localUnitsTableType": "Type",
-        "localUnitsTableStatus": "Status"
-    }
-}
