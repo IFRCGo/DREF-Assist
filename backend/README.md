@@ -3,7 +3,6 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi)
 ![Azure OpenAI](https://img.shields.io/badge/Azure%20OpenAI-GPT--4o-ff6f00)
-![License](https://img.shields.io/badge/License-TBD-lightgrey)
 
 The DREF Assist backend is a **stateless FastAPI application** that powers the AI pipeline behind DREF application assistance. It accepts multimodal inputs (text, images, PDFs, DOCX, audio, video), processes them through media-specific handlers, sends the extracted content to Azure OpenAI GPT-4o for field extraction, detects conflicts when new data contradicts existing form values, and evaluates completed applications against the IFRC rubric. The frontend sends the full form state with every request — the backend stores nothing.
 
@@ -21,7 +20,6 @@ The DREF Assist backend is a **stateless FastAPI application** that powers the A
 - [Project Structure](#project-structure)
 - [Contributing](#contributing)
 - [Team and Acknowledgements](#team-and-acknowledgements)
-- [License](#license)
 
 ---
 

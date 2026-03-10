@@ -8,7 +8,6 @@
 ![React](https://img.shields.io/badge/React-18.3-61dafb?logo=react)
 ![Azure OpenAI](https://img.shields.io/badge/Azure%20OpenAI-GPT--4o-ff6f00)
 ![Built for](https://img.shields.io/badge/Built%20for-IFRC-ED1B2F?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEyIDJMMiAyMmgyMEwxMiAyeiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=)
-![License](https://img.shields.io/badge/License-TBD-lightgrey)
 
 DREF Assist helps emergency surveyors complete [DREF (Disaster Response Emergency Fund)](https://www.ifrc.org/disaster-response-emergency-fund-dref) applications faster and to a higher standard. It accepts multimodal inputs — text, PDFs, images, voice recordings, and video — processes them through Azure OpenAI GPT-4o, and automatically populates the DREF application form via a conversational chat interface. When conflicting data is detected across sources, the system pauses for human resolution. A built-in evaluation engine scores the completed application against IFRC rubric criteria and suggests improvements.
 
@@ -23,8 +22,6 @@ DREF Assist helps emergency surveyors complete [DREF (Disaster Response Emergenc
 - [Quickstart](#quickstart)
 - [Links](#links)
 - [Team](#team)
-- [License](#license)
-
 ---
 
 ## Architecture
@@ -32,27 +29,27 @@ DREF Assist helps emergency surveyors complete [DREF (Disaster Response Emergenc
 ```mermaid
 flowchart TB
     subgraph Frontend["prototypefrontend/ — React + TypeScript"]
-        UI["DREF Form Wizard\n(5-step IFRC GO UI)"]
-        Chat["AI Chat Assistant\n(text, files, voice)"]
-        Eval["Evaluation Panel\n(rubric results)"]
+        UI["DREF Form Wizard<br>(5-step IFRC GO UI)"]
+        Chat["AI Chat Assistant<br>(text, files, voice)"]
+        Eval["Evaluation Panel<br>(rubric results)"]
     end
 
     subgraph Backend["backend/ — FastAPI"]
-        API["FastAPI Router\n/api/chat · /api/evaluate"]
-        MP["Media Processor\nPDF · DOCX · Image\nAudio · Video"]
-        LLM["LLM Handler\nGPT-4o · JSON mode\nField extraction"]
-        CR["Conflict Resolver\nWithin-batch · Cross-batch\nNumeric tolerance"]
-        DE["DREF Evaluator\nPass 1: Rule-based\nPass 2: LLM quality"]
+        API["FastAPI Router<br>/api/chat · /api/evaluate"]
+        MP["Media Processor<br>PDF · DOCX · Image<br>Audio · Video"]
+        LLM["LLM Handler<br>GPT-4o · JSON mode<br>Field extraction"]
+        CR["Conflict Resolver<br>Within-batch · Cross-batch<br>Numeric tolerance"]
+        DE["DREF Evaluator<br>Pass 1: Rule-based<br>Pass 2: LLM quality"]
     end
 
     subgraph External["External Services"]
-        GPT["Azure OpenAI\nGPT-4o"]
-        Whisper["Azure OpenAI\nWhisper"]
+        GPT["Azure OpenAI<br>GPT-4o"]
+        Whisper["Azure OpenAI<br>Whisper"]
     end
 
     UI <--> Chat
     UI <--> Eval
-    Chat -- "POST /api/chat\n(form state + files + history)" --> API
+    Chat -- "POST /api/chat<br>(form state + files + history)" --> API
     Eval -- "POST /api/evaluate" --> API
     API --> MP
     MP --> LLM
@@ -190,8 +187,3 @@ Open **http://localhost:8080** — you should see the IFRC GO-styled DREF form w
 **Client:** IFRC — International Federation of Red Cross and Red Crescent Societies
 **Academic context:** UCL Department of Computer Science — COMP0016 Systems Engineering (IXN), 2025–26
 
----
-
-## License
-
-> ⚠️ **TODO:** A license has not yet been added to this repository. Please choose and add an appropriate open-source license (e.g. MIT, Apache 2.0) before public release.

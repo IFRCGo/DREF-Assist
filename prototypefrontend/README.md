@@ -4,7 +4,6 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6?logo=typescript)
 ![Vite](https://img.shields.io/badge/Vite-7.3-646cff?logo=vite)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06b6d4?logo=tailwindcss)
-![License](https://img.shields.io/badge/License-TBD-lightgrey)
 
 The DREF Assist frontend is a **React + TypeScript** application that replicates the IFRC GO DREF application form as a multi-step wizard. It integrates an AI-powered chat assistant (backed by the DREF Assist backend) that accepts text, files, and voice input to auto-populate form fields. The application includes real-time evaluation against IFRC rubric criteria, conflict resolution when contradictory data is detected, and a review-and-submit workflow. The UI is themed to match the existing IFRC GO platform so field officers do not need retraining.
 
@@ -21,7 +20,6 @@ The DREF Assist frontend is a **React + TypeScript** application that replicates
 - [Project Structure](#project-structure)
 - [Contributing](#contributing)
 - [Team and Acknowledgements](#team-and-acknowledgements)
-- [License](#license)
 
 ---
 
