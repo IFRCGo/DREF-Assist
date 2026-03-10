@@ -1,9 +1,0 @@
-{
-    "namespace": "activeSurgeDeployments",
-    "strings": {
-        "surgeEmergencyResponseUnit": "Emergency Response Unit",
-        "surgeRapidResponsePersonnel": "Rapid Response Personnel",
-        "surgeDeployingOrganizations": "Deploying Organisation",
-        "operationStartDateLabel": "Operation start date"
-    }
-}

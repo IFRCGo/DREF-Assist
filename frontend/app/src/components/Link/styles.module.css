@@ -1,9 +1,0 @@
-.link {
-    display: contents;
-
-    .layout {
-        &.with-underline {
-            text-decoration: underline;
-        }
-    }
-}

@@ -1,9 +1,0 @@
-{
-    "namespace": "regionProfile",
-    "strings": {
-        "regionalProfileAdditionalLinks": "Additional Links",
-        "regionProfileContacts": "Contacts",
-        "regionalProfileNationalSocietyTitle": "National Society in {regionName}",
-        "regionalProfileSource": "Source: IFRC"
-    }
-}

@@ -1,7 +1,0 @@
-{
-    "namespace": "operationListItem",
-    "strings": {
-        "operationLastUpdatedLabel": "Last updated",
-        "operationUnfollowButtonLabel": "Unfollow"
-    }
-}

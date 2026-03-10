@@ -138,7 +138,11 @@ def _enriched_to_field_values(enriched_form_state: Dict[str, Any]) -> Dict[str, 
 def _normalize_updates_for_detector(field_updates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Normalize LLM field_updates (field_id key) to detector format (field key)."""
     return [
-        {"field": u.get("field_id", u.get("field")), "value": u.get("value")}
+        {
+            "field": u.get("field_id", u.get("field")),
+            "value": u.get("value"),
+            "source": u.get("source"),
+        }
         for u in field_updates
     ]
 
@@ -184,7 +188,7 @@ def process_user_input(
     llm_input: Any
 
     processing_summary = None
-    source = "user_message"
+    fallback_source = "user_message"
 
     if files:
         file_inputs = [
@@ -209,9 +213,9 @@ def process_user_input(
             "failed": summary.failed,
         }
 
-        source = files[0]["filename"]
+        fallback_source = files[0]["filename"]
         if len(files) > 1:
-            source = f"{files[0]['filename']} (+{len(files)-1} more)"
+            fallback_source = ", ".join(f["filename"] for f in files)
     else:
         llm_input = user_message
 
@@ -231,7 +235,7 @@ def process_user_input(
     conflicts, non_conflicting = detector.detect_conflicts(
         current_state=field_values,
         new_updates=normalized_updates,
-        source=source,
+        source=fallback_source,
     )
 
     # Build response with enriched field updates (add source + timestamp)
@@ -240,7 +244,7 @@ def process_user_input(
         {
             "field_id": u["field"],
             "value": u["value"],
-            "source": source,
+            "source": u.get("source") or fallback_source,
             "timestamp": timestamp,
         }
         for u in non_conflicting

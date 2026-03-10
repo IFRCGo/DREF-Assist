@@ -89,9 +89,11 @@ Respond in this exact JSON format:
   "classification": "NEW_INFORMATION" | "MODIFICATION_REQUEST" | "QUESTION" | "OFF_TOPIC",
   "reply": "your message to the user",
   "field_updates": [
-    { "field_id": "tab.field_name", "value": <value> }
+    { "field_id": "tab.field_name", "value": <value>, "source": "<filename or user_message>" }
   ]
-}"""
+}
+
+The "source" field in each field_update should be the filename of the document the value was extracted from (e.g., "report.pdf", "assessment.docx"). Use "user_message" if the value came from the user's text rather than an attached file."""
 
 
 def _build_field_schema_reference() -> str:
