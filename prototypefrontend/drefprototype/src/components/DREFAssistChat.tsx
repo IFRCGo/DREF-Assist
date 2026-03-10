@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
-import { Bot, Send, X, Save, Check } from "lucide-react";
+import { Bot, Send, X, Save, Check, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -79,6 +79,12 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
     const [conflictTracker, setConflictTracker] = useState<Record<string, Record<string, TrackedConflict>>>({});
     const [chatSize, setChatSize] = useState({ width: 380, height: 520 });
     const [isResizing, setIsResizing] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+    const recorderRef = useRef<MediaRecorder | null>(null);
+    const streamRef = useRef<MediaStream | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const [elapsedMs, setElapsedMs] = useState(0);
+    const timerRef = useRef<number | null>(null);
 
     // Refs to read latest state without stale closures
     const updateTrackerRef = useRef(updateTracker);
@@ -91,6 +97,123 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
     const fileInputRef = useRef<HTMLInputElement>(null);
     const createdUrlsRef = useRef<Set<string>>(new Set());
     const queuedUpdatesRef = useRef<Record<string, FieldUpdate[]>>({});
+
+    const formatTime = (ms: number) => {
+        const totalSec = Math.floor(ms / 1000);
+        const mm = Math.floor(totalSec / 60).toString().padStart(2, "0");
+        const ss = (totalSec % 60).toString().padStart(2, "0");
+        return `${mm}:${ss}`;
+    };
+
+    const startRecording = async () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            streamRef.current = stream;
+            audioChunksRef.current = [];
+
+            const mime = MediaRecorder.isTypeSupported("audio/webm")
+                ? "audio/webm"
+                : "audio/ogg;codecs=opus";
+
+            const mr = new MediaRecorder(stream, { mimeType: mime });
+            recorderRef.current = mr;
+
+            mr.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
+            };
+
+            mr.onstop = () => {
+                const blob = new Blob(audioChunksRef.current, { type: mime });
+                const filename = `recording-${Date.now()}.${mime.includes("webm") ? "webm" : "ogg"}`;
+                const file = new File([blob], filename, { type: blob.type });
+                const url = URL.createObjectURL(blob);
+                createdUrlsRef.current.add(url);
+
+                setSelectedFiles((prev) => [...prev, file]);
+                setPreviewUrls((prev) => [...prev, url]);
+
+                // stop tracks
+                if (streamRef.current) {
+                    streamRef.current.getTracks().forEach(t => t.stop());
+                    streamRef.current = null;
+                }
+                recorderRef.current = null;
+                audioChunksRef.current = [];
+                setIsRecording(false);
+                if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                    timerRef.current = null;
+                }
+                setElapsedMs(0);
+            };
+
+            mr.start();
+            setIsRecording(true);
+            setElapsedMs(0);
+            if (timerRef.current) clearInterval(timerRef.current);
+            timerRef.current = window.setInterval(() => {
+                setElapsedMs((prev) => prev + 1000);
+            }, 1000);
+        } catch (err) {
+            // permission denied or other error - swallow silently
+            console.error("Recording failed:", err);
+        }
+    };
+
+    const stopRecording = () => {
+        if (recorderRef.current && recorderRef.current.state !== "inactive") {
+            recorderRef.current.stop();
+        } else {
+            // no recorder but stream exists
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(t => t.stop());
+                streamRef.current = null;
+            }
+            setIsRecording(false);
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+            setElapsedMs(0);
+        }
+    };
+
+    const cancelRecording = () => {
+        // stop and discard chunks
+        if (recorderRef.current && recorderRef.current.state !== "inactive") {
+            recorderRef.current.stop();
+        }
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+        }
+        audioChunksRef.current = [];
+        recorderRef.current = null;
+        setIsRecording(false);
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+        setElapsedMs(0);
+    };
+
+    // ensure cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (recorderRef.current && recorderRef.current.state !== "inactive") {
+                recorderRef.current.stop();
+            }
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(t => t.stop());
+                streamRef.current = null;
+            }
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        };
+    }, []);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -608,7 +731,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                         <div
                             key={fieldId}
                             className={`flex items-center justify-between px-2 py-1.5 gap-2 ${tracked.status === "rejected" ? "opacity-50" : ""
-                            }`}
+                                }`}
                         >
                             <div className="flex-1 min-w-0">
                                 <span className="font-medium">{getFieldLabel(fieldId)}: </span>
@@ -745,8 +868,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
     };
 
     return (
-        <div
-            className={`fixed bottom-20 right-6 z-50 flex flex-col rounded-xl border border-border bg-card shadow-2xl ${isOpen ? "" : "hidden"}`}
+        <div className={`fixed bottom-20 right-6 z-50 flex flex-col rounded-xl border border-border bg-card shadow-2xl ${isOpen ? "" : "hidden"}`}
             style={{ width: `${chatSize.width}px`, height: `${chatSize.height}px` }}
         >
             {/* Header */}
@@ -786,13 +908,13 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                         <div
                             key={msg.id}
                             className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"
-                            }`}
+                                }`}
                         >
                             <div
                                 className={`group relative max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed ${msg.role === "user"
                                     ? "bg-primary text-primary-foreground"
                                     : "bg-muted text-foreground"
-                                }`}
+                                    }`}
                             >
                                 <div className="break-words prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-1.5">
                                     <ReactMarkdown>{msg.content}</ReactMarkdown>
@@ -832,7 +954,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                                     className={`absolute -right-7 top-1 rounded p-0.5 transition-opacity ${msg.saved
                                         ? "opacity-100 text-primary"
                                         : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary"
-                                    }`}
+                                        }`}
                                     title={msg.saved ? "Unsave" : "Save prompt"}
                                 >
                                     <Save className="h-3.5 w-3.5" />
@@ -892,6 +1014,28 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                             <path d="M21.44 11.05L12.6 19.9a5.5 5.5 0 0 1-7.78 0 5.5 5.5 0 0 1 0-7.78l8.84-8.84a3.5 3.5 0 0 1 4.95 4.95L10 17.1" />
                         </svg>
                     </Button>
+
+                    {/* Record button */}
+                    <Button
+                        size="icon"
+                        onClick={() => { if (isRecording) stopRecording(); else startRecording(); }}
+                        disabled={isTyping}
+                        className={`h-9 w-9 shrink-0 ${isRecording ? "bg-red-600/80 hover:bg-red-600" : ""}`}
+                        title={isRecording ? "Stop recording" : "Record audio"}
+                        aria-label="Record audio"
+                    >
+                        {isRecording ? (
+                            <span className="relative flex items-center justify-center">
+                                <Mic className="h-4 w-4" />
+                                <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                    <span className="block w-[1.5px] h-5 bg-white/90 rotate-45 translate-y-px" />
+                                </span>
+                            </span>
+                        ) : (
+                            <Mic className="h-4 w-4" />
+                        )}
+                    </Button>
+
                     <Button
                         size="icon"
                         onClick={sendMessage}
@@ -904,24 +1048,47 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                     </Button>
                 </div>
 
+                {/* Recording status (timer) */}
+                {isRecording && (
+                    <div className="mt-2 flex items-center gap-2">
+                        <span className="text-[11px] font-mono text-foreground/90 select-none">{formatTime(elapsedMs)}</span>
+                        <Button
+                            size="icon"
+                            onClick={cancelRecording}
+                            title="Cancel recording"
+                            aria-label="Cancel recording"
+                            className="h-7 w-7 p-1"
+                        >
+                            <X className="h-3 w-3" />
+                        </Button>
+                    </div>
+                )}
+
                 {selectedFiles.length > 0 && (
                     <div className="mt-2 flex flex-col gap-2 max-h-[120px] overflow-y-auto pr-1">
                         {selectedFiles.map((file, idx) => (
-                            <div key={idx} className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1 text-sm shrink-0">
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                        <polyline points="7 10 12 15 17 10" />
-                                        <line x1="12" y1="15" x2="12" y2="3" />
-                                    </svg>
-                                    <div className="truncate">
-                                        {file.name}{" "}
-                                        <span className="text-[11px] text-muted-foreground whitespace-nowrap">• {Math.round(file.size / 1024)} KB</span>
-                                    </div>
+                            <div key={idx} className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1 text-sm">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    {file.type?.startsWith("audio") ? (
+                                        <audio controls src={previewUrls[idx]} className="w-full h-6 max-w-full" />
+                                    ) : (
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                <polyline points="7 10 12 15 17 10" />
+                                                <line x1="12" y1="15" x2="12" y2="3" />
+                                            </svg>
+                                            <div className="truncate">
+                                                {file.name}{" "}
+                                                <span className="text-[11px] text-muted-foreground whitespace-nowrap">• {Math.round((file.size ?? 0) / 1024)} KB</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
+
                                 <div className="flex items-center gap-1 shrink-0">
-                                    <button onClick={() => removeSelectedFile(idx)} className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground">
-                                        <X className="h-3.5 w-3.5" />
+                                    <button onClick={() => removeSelectedFile(idx)} className="h-7 w-7 p-1 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground">
+                                        <X className="h-3 w-3" />
                                     </button>
                                 </div>
                             </div>
