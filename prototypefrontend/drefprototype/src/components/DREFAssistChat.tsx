@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
-import { Bot, Send, X, Save, Check } from "lucide-react";
+import { Bot, Send, X, Save, Check, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -731,7 +731,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                         <div
                             key={fieldId}
                             className={`flex items-center justify-between px-2 py-1.5 gap-2 ${tracked.status === "rejected" ? "opacity-50" : ""
-                            }`}
+                                }`}
                         >
                             <div className="flex-1 min-w-0">
                                 <span className="font-medium">{getFieldLabel(fieldId)}: </span>
@@ -908,13 +908,13 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                         <div
                             key={msg.id}
                             className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"
-                            }`}
+                                }`}
                         >
                             <div
                                 className={`group relative max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed ${msg.role === "user"
                                     ? "bg-primary text-primary-foreground"
                                     : "bg-muted text-foreground"
-                                }`}
+                                    }`}
                             >
                                 <div className="break-words prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-1.5">
                                     <ReactMarkdown>{msg.content}</ReactMarkdown>
@@ -954,7 +954,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                                     className={`absolute -right-7 top-1 rounded p-0.5 transition-opacity ${msg.saved
                                         ? "opacity-100 text-primary"
                                         : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary"
-                                    }`}
+                                        }`}
                                     title={msg.saved ? "Unsave" : "Save prompt"}
                                 >
                                     <Save className="h-3.5 w-3.5" />
