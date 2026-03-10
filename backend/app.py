@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from openai import AzureOpenAI
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -332,6 +333,13 @@ async def chat(
     user_message = payload.get("user_message", "")
     form_state = payload.get("form_state", {})
     conversation_history = payload.get("conversation_history", [])
+
+    # Only allow one file per message
+    if len(files) > 1:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Only one file upload per message is allowed."},
+        )
 
     # Process uploaded files into the format expected by assistant
     file_dicts = []

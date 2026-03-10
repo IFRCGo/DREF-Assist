@@ -130,8 +130,15 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                 const url = URL.createObjectURL(blob);
                 createdUrlsRef.current.add(url);
 
-                setSelectedFiles((prev) => [...prev, file]);
-                setPreviewUrls((prev) => [...prev, url]);
+                // Only allow one file per message — replace any existing selection
+                setSelectedFiles([file]);
+                setPreviewUrls((prev) => {
+                    prev.forEach(oldUrl => {
+                        URL.revokeObjectURL(oldUrl);
+                        createdUrlsRef.current.delete(oldUrl);
+                    });
+                    return [url];
+                });
 
                 // stop tracks
                 if (streamRef.current) {
@@ -515,13 +522,20 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        const newFiles = Array.from(files);
-        const newUrls = newFiles.map((file) => URL.createObjectURL(file));
+        // Only allow one file per message
+        const file = files[0];
+        const url = URL.createObjectURL(file);
 
-        newUrls.forEach(url => createdUrlsRef.current.add(url));
+        // Revoke any previously created object URLs for old selected files
+        previewUrls.forEach(oldUrl => {
+            URL.revokeObjectURL(oldUrl);
+            createdUrlsRef.current.delete(oldUrl);
+        });
 
-        setSelectedFiles(prev => [...prev, ...newFiles]);
-        setPreviewUrls(prev => [...prev, ...newUrls]);
+        createdUrlsRef.current.add(url);
+
+        setSelectedFiles([file]);
+        setPreviewUrls([url]);
 
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
@@ -1001,7 +1015,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                         className="flex-1 text-sm"
                         disabled={isTyping}
                     />
-                    <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFilePick} />
+                    <input ref={fileInputRef} type="file" className="hidden" onChange={handleFilePick} />
                     <Button
                         size="icon"
                         onClick={() => fileInputRef.current?.click()}
