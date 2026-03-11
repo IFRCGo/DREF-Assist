@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from openai import AzureOpenAI
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -29,7 +29,7 @@ sys.path.insert(0, str(_backend_path / "llm_handler"))
 sys.path.insert(0, str(_backend_path / "conflict_resolver"))
 sys.path.insert(0, str(_backend_path / "dref_evaluation"))
 
-from services.assistant import process_user_input, FIELD_LABELS
+from services.assistant import process_user_input, process_user_input_stream, get_shared_client, FIELD_LABELS
 from dref_evaluation.evaluator import DrefEvaluator, RubricLoader
 
 app = FastAPI(title="DREF Assist API")
@@ -325,8 +325,14 @@ async def chat(
     files: List[UploadFile] = File(default=[]),
 ):
     """
-    Main chat endpoint. Accepts user message + form state + history as JSON
-    in the 'data' form field, and optional file uploads.
+    Main chat endpoint. Returns an SSE stream with incremental reply text
+    followed by a final ``done`` event containing the full structured response.
+
+    SSE event types:
+      - ``status``  – progress messages (e.g. "Processing uploaded files…")
+      - ``reply_chunk`` – incremental reply text (``delta`` + ``snapshot``)
+      - ``done``    – final JSON payload (classification, reply, field_updates, conflicts)
+      - ``error``   – on failure
     """
     payload = json.loads(data)
 
@@ -341,7 +347,7 @@ async def chat(
             content={"detail": "Only one file upload per message is allowed."},
         )
 
-    # Process uploaded files into the format expected by assistant
+    # Read uploaded files into dicts before entering the sync generator
     file_dicts = []
     for upload in files:
         content = await upload.read()
@@ -352,23 +358,45 @@ async def chat(
             "filename": upload.filename or "uploaded_file",
         })
 
-    result = process_user_input(
-        user_message=user_message,
-        enriched_form_state=form_state,
-        files=file_dicts if file_dicts else None,
-        conversation_history=conversation_history,
+    def _sse_generator():
+        try:
+            for event in process_user_input_stream(
+                user_message=user_message,
+                enriched_form_state=form_state,
+                files=file_dicts if file_dicts else None,
+                conversation_history=conversation_history,
+            ):
+                event_type = event["event"]
+                event_data = json.dumps(event["data"], ensure_ascii=False)
+                yield f"event: {event_type}\ndata: {event_data}\n\n"
+        except Exception as exc:
+            error_data = json.dumps({"detail": str(exc)})
+            yield f"event: error\ndata: {error_data}\n\n"
+
+    return StreamingResponse(
+        _sse_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )
 
-    return result
+
+# Singleton AzureOpenAI client for evaluation endpoints
+_llm_client: Optional[AzureOpenAI] = None
 
 
-def _create_llm_client() -> AzureOpenAI:
-    """Create an Azure OpenAI client for LLM-based evaluation."""
-    return AzureOpenAI(
-        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-    )
+def _get_llm_client() -> AzureOpenAI:
+    """Return a shared AzureOpenAI client for evaluation, creating it on first use."""
+    global _llm_client
+    if _llm_client is None:
+        _llm_client = AzureOpenAI(
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+        )
+    return _llm_client
 
 
 @app.post("/api/evaluate")
@@ -376,7 +404,7 @@ async def evaluate(request: EvaluateRequest):
     """Full DREF evaluation against IFRC rubric."""
     plain_state = _extract_plain_values(request.form_state)
     rubric_state = _map_frontend_to_rubric(plain_state)
-    evaluator = DrefEvaluator(llm_client=_create_llm_client())
+    evaluator = DrefEvaluator(llm_client=_get_llm_client())
     result = evaluator.evaluate(dref_id=0, form_state=rubric_state)
     return _postprocess_evaluation(evaluator.to_dict(result))
 
@@ -386,7 +414,7 @@ async def evaluate_section(request: EvaluateSectionRequest):
     """Section-level DREF evaluation."""
     plain_state = _extract_plain_values(request.form_state)
     rubric_state = _map_frontend_to_rubric(plain_state)
-    evaluator = DrefEvaluator(llm_client=_create_llm_client())
+    evaluator = DrefEvaluator(llm_client=_get_llm_client())
     section_result = evaluator.evaluate_section(
         section_name=request.section,
         form_state=rubric_state,

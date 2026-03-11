@@ -46,11 +46,19 @@ export interface ConversationMessage {
   content: string;
 }
 
+/**
+ * Send a chat message and stream the response via SSE.
+ *
+ * Calls `onReplyChunk` as reply text arrives and resolves with the
+ * full structured response once the stream completes.
+ */
 export async function sendChatMessage(
   userMessage: string,
   formState: EnrichedFormState,
   conversationHistory: ConversationMessage[],
   files?: File[],
+  onReplyChunk?: (delta: string, snapshot: string) => void,
+  onStatus?: (message: string) => void,
 ): Promise<ChatResponse> {
   const payload = {
     user_message: userMessage,
@@ -76,7 +84,66 @@ export async function sendChatMessage(
     throw new Error(`Chat API error: ${response.status}`);
   }
 
-  return response.json();
+  // Parse the SSE stream
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalResult: ChatResponse | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    // Process complete SSE messages (terminated by double newline)
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+
+    for (const part of parts) {
+      if (!part.trim()) continue;
+
+      let eventType = "message";
+      let eventData = "";
+
+      for (const line of part.split("\n")) {
+        if (line.startsWith("event: ")) {
+          eventType = line.slice(7);
+        } else if (line.startsWith("data: ")) {
+          eventData += line.slice(6);
+        }
+      }
+
+      if (!eventData) continue;
+
+      try {
+        const parsed = JSON.parse(eventData);
+
+        switch (eventType) {
+          case "reply_chunk":
+            onReplyChunk?.(parsed.delta, parsed.snapshot);
+            break;
+          case "status":
+            onStatus?.(parsed.message);
+            break;
+          case "done":
+            finalResult = parsed as ChatResponse;
+            break;
+          case "error":
+            throw new Error(parsed.detail || "Stream error");
+        }
+      } catch (e) {
+        if (e instanceof SyntaxError) continue; // skip malformed JSON
+        throw e;
+      }
+    }
+  }
+
+  if (!finalResult) {
+    throw new Error("Stream ended without a done event");
+  }
+
+  return finalResult;
 }
 
 // --- Evaluation types ---
