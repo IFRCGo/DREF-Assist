@@ -26,6 +26,7 @@ interface Message {
     content: string;
     timestamp: Date;
     saved?: boolean;
+    streaming?: boolean;
     fileAttachments?: FileAttachment[];
     fieldUpdates?: FieldUpdate[];
     conflicts?: ConflictInfo[];
@@ -97,6 +98,8 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
     const fileInputRef = useRef<HTMLInputElement>(null);
     const createdUrlsRef = useRef<Set<string>>(new Set());
     const queuedUpdatesRef = useRef<Record<string, FieldUpdate[]>>({});
+    const latestSnapshotRef = useRef("");
+    const rafPendingRef = useRef(false);
 
     const formatTime = (ms: number) => {
         const totalSec = Math.floor(ms / 1000);
@@ -130,8 +133,13 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                 const url = URL.createObjectURL(blob);
                 createdUrlsRef.current.add(url);
 
-                setSelectedFiles((prev) => [...prev, file]);
-                setPreviewUrls((prev) => [...prev, url]);
+                // Only allow one file per message — replace any existing selection
+                previewUrls.forEach(oldUrl => {
+                    URL.revokeObjectURL(oldUrl);
+                    createdUrlsRef.current.delete(oldUrl);
+                });
+                setSelectedFiles([file]);
+                setPreviewUrls([url]);
 
                 // stop tracks
                 if (streamRef.current) {
@@ -515,13 +523,20 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        const newFiles = Array.from(files);
-        const newUrls = newFiles.map((file) => URL.createObjectURL(file));
+        // Only allow one file per message — replace any existing selection
+        const file = files[0];
+        const url = URL.createObjectURL(file);
 
-        newUrls.forEach(url => createdUrlsRef.current.add(url));
+        // Revoke old preview URLs
+        previewUrls.forEach(oldUrl => {
+            URL.revokeObjectURL(oldUrl);
+            createdUrlsRef.current.delete(oldUrl);
+        });
 
-        setSelectedFiles(prev => [...prev, ...newFiles]);
-        setPreviewUrls(prev => [...prev, ...newUrls]);
+        createdUrlsRef.current.add(url);
+
+        setSelectedFiles([file]);
+        setPreviewUrls([url]);
 
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
@@ -584,15 +599,8 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
         setSelectedFiles([]);
         setPreviewUrls([]);
 
-        // Create a placeholder assistant message for streaming
         const msgId = crypto.randomUUID();
-        const streamingMsg: Message = {
-            id: msgId,
-            role: "assistant",
-            content: "",
-            timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, streamingMsg]);
+        let messageInserted = false;
 
         try {
             // Send effective form state (includes pending suggestions) so
@@ -604,22 +612,37 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                 effectiveFormState,
                 buildConversationHistory(),
                 filesToSend,
-                // onReplyChunk — update the streaming message as text arrives
+                // onReplyChunk — buffer snapshots and flush once per animation frame
+                // so React doesn't re-render on every single token.
                 (_delta, snapshot) => {
-                    setMessages((prev) =>
-                        prev.map((m) =>
-                            m.id === msgId ? { ...m, content: snapshot } : m
-                        )
-                    );
+                    latestSnapshotRef.current = snapshot;
+                    if (!rafPendingRef.current) {
+                        rafPendingRef.current = true;
+                        requestAnimationFrame(() => {
+                            rafPendingRef.current = false;
+                            const text = latestSnapshotRef.current;
+                            if (!messageInserted) {
+                                messageInserted = true;
+                                setMessages((prev) => [...prev, {
+                                    id: msgId,
+                                    role: "assistant" as const,
+                                    content: text,
+                                    timestamp: new Date(),
+                                    streaming: true,
+                                }]);
+                            } else {
+                                setMessages((prev) =>
+                                    prev.map((m) =>
+                                        m.id === msgId ? { ...m, content: text } : m
+                                    )
+                                );
+                            }
+                        });
+                    }
                 },
-                // onStatus — show status text while processing
-                (statusMessage) => {
-                    setMessages((prev) =>
-                        prev.map((m) =>
-                            m.id === msgId ? { ...m, content: statusMessage } : m
-                        )
-                    );
-                },
+                // onStatus — no-op; the existing isTyping indicator already
+                // shows "Response Generating..." so we skip duplicate status text.
+                undefined,
             );
 
             // Build reply with natural conflict acknowledgment
@@ -640,19 +663,23 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                 }
             }
 
-            // Replace the streaming message with the final structured response
-            setMessages((prev) =>
-                prev.map((m) =>
-                    m.id === msgId
-                        ? {
-                              ...m,
-                              content: replyContent,
-                              fieldUpdates: hasConflicts ? undefined : response.field_updates,
-                              conflicts: response.conflicts,
-                          }
-                        : m
-                )
-            );
+            // Replace or insert the final structured response
+            const finalMsg: Message = {
+                id: msgId,
+                role: "assistant",
+                content: replyContent,
+                timestamp: new Date(),
+                fieldUpdates: hasConflicts ? undefined : response.field_updates,
+                conflicts: response.conflicts,
+            };
+
+            if (messageInserted) {
+                setMessages((prev) =>
+                    prev.map((m) => (m.id === msgId ? finalMsg : m))
+                );
+            } else {
+                setMessages((prev) => [...prev, finalMsg]);
+            }
 
             if (hasConflicts && hasUpdates) {
                 queuedUpdatesRef.current[msgId] = response.field_updates;
@@ -676,17 +703,21 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                 setConflictTracker((prev) => ({ ...prev, [msgId]: tracked }));
             }
         } catch (error) {
-            // Update the streaming message to show the error
-            setMessages((prev) =>
-                prev.map((m) =>
-                    m.id === msgId
-                        ? {
-                              ...m,
-                              content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`,
-                          }
-                        : m
-                )
-            );
+            const errorContent = `Sorry, I encountered an error: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`;
+            if (messageInserted) {
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === msgId ? { ...m, content: errorContent } : m
+                    )
+                );
+            } else {
+                setMessages((prev) => [...prev, {
+                    id: msgId,
+                    role: "assistant" as const,
+                    content: errorContent,
+                    timestamp: new Date(),
+                }]);
+            }
         } finally {
             setIsTyping(false);
         }
@@ -947,7 +978,11 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                                     }`}
                             >
                                 <div className="break-words prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-1.5">
-                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                    {msg.streaming ? (
+                                        <p className="whitespace-pre-wrap">{msg.content}<span className="inline-block w-1.5 h-4 ml-0.5 bg-current animate-pulse align-text-bottom" /></p>
+                                    ) : (
+                                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                    )}
                                 </div>
 
                                 {msg.fileAttachments && msg.fileAttachments.length > 0 && (
@@ -1031,7 +1066,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                         className="flex-1 text-sm"
                         disabled={isTyping}
                     />
-                    <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFilePick} />
+                    <input ref={fileInputRef} type="file" className="hidden" onChange={handleFilePick} />
                     <Button
                         size="icon"
                         onClick={() => fileInputRef.current?.click()}
