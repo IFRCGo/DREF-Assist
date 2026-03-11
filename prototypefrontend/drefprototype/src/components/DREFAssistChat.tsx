@@ -584,6 +584,16 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
         setSelectedFiles([]);
         setPreviewUrls([]);
 
+        // Create a placeholder assistant message for streaming
+        const msgId = crypto.randomUUID();
+        const streamingMsg: Message = {
+            id: msgId,
+            role: "assistant",
+            content: "",
+            timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, streamingMsg]);
+
         try {
             // Send effective form state (includes pending suggestions) so
             // the LLM knows what it already suggested and doesn't re-ask
@@ -594,9 +604,23 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                 effectiveFormState,
                 buildConversationHistory(),
                 filesToSend,
+                // onReplyChunk — update the streaming message as text arrives
+                (_delta, snapshot) => {
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === msgId ? { ...m, content: snapshot } : m
+                        )
+                    );
+                },
+                // onStatus — show status text while processing
+                (statusMessage) => {
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === msgId ? { ...m, content: statusMessage } : m
+                        )
+                    );
+                },
             );
-
-            const msgId = crypto.randomUUID();
 
             // Build reply with natural conflict acknowledgment
             let replyContent = response.reply;
@@ -616,17 +640,19 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                 }
             }
 
-            const assistantMsg: Message = {
-                id: msgId,
-                role: "assistant",
-                content: replyContent,
-                timestamp: new Date(),
-                // ONLY show updates in this message if there are NO conflicts
-                fieldUpdates: hasConflicts ? undefined : response.field_updates,
-                conflicts: response.conflicts,
-            };
-
-            setMessages((prev) => [...prev, assistantMsg]);
+            // Replace the streaming message with the final structured response
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.id === msgId
+                        ? {
+                              ...m,
+                              content: replyContent,
+                              fieldUpdates: hasConflicts ? undefined : response.field_updates,
+                              conflicts: response.conflicts,
+                          }
+                        : m
+                )
+            );
 
             if (hasConflicts && hasUpdates) {
                 queuedUpdatesRef.current[msgId] = response.field_updates;
@@ -650,13 +676,17 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                 setConflictTracker((prev) => ({ ...prev, [msgId]: tracked }));
             }
         } catch (error) {
-            const errorMsg: Message = {
-                id: crypto.randomUUID(),
-                role: "assistant",
-                content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`,
-                timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, errorMsg]);
+            // Update the streaming message to show the error
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.id === msgId
+                        ? {
+                              ...m,
+                              content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`,
+                          }
+                        : m
+                )
+            );
         } finally {
             setIsTyping(false);
         }

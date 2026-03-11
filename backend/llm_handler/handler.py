@@ -6,7 +6,7 @@ prompt construction, API calls, and response processing.
 """
 
 import os
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, Generator, List, Optional, Tuple, Union
 
 from openai import AzureOpenAI
 from dotenv import load_dotenv
@@ -18,6 +18,20 @@ load_dotenv()
 
 # Type alias for message content (text string or multimodal list from media-processor)
 MessageContent = Union[str, List[Dict[str, Any]]]
+
+
+def _build_messages(
+    user_message: MessageContent,
+    current_form_state: Dict[str, Any],
+    conversation_history: Optional[List[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """Build the messages array for the OpenAI API call."""
+    system_prompt = build_system_prompt(current_form_state)
+    messages: List[Dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+    if conversation_history:
+        messages.extend(conversation_history)
+    messages.append({"role": "user", "content": user_message})
+    return messages
 
 
 def handle_message(
@@ -60,14 +74,7 @@ def handle_message(
             api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
         )
 
-    system_prompt = build_system_prompt(current_form_state)
-
-    messages: List[Dict[str, Any]] = [{"role": "system", "content": system_prompt}]
-
-    if conversation_history:
-        messages.extend(conversation_history)
-
-    messages.append({"role": "user", "content": user_message})
+    messages = _build_messages(user_message, current_form_state, conversation_history)
 
     response = client.chat.completions.create(
         model=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
@@ -79,3 +86,44 @@ def handle_message(
     raw_response = response.choices[0].message.content
 
     return process_llm_response(raw_response)
+
+
+def handle_message_stream(
+    user_message: MessageContent,
+    current_form_state: Dict[str, Any],
+    conversation_history: Optional[List[Dict[str, Any]]] = None,
+    client: Optional[AzureOpenAI] = None,
+) -> Generator[Tuple[str, str], None, None]:
+    """
+    Stream a user message response, yielding (delta, accumulated) tuples.
+
+    Same as handle_message but uses stream=True. Yields raw token deltas
+    as they arrive. The caller is responsible for parsing the final
+    accumulated JSON via process_llm_response().
+
+    Yields:
+        Tuples of (delta_text, accumulated_text).
+    """
+    if client is None:
+        client = AzureOpenAI(
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+        )
+
+    messages = _build_messages(user_message, current_form_state, conversation_history)
+
+    stream = client.chat.completions.create(
+        model=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
+        messages=messages,
+        temperature=0.1,
+        response_format={"type": "json_object"},
+        stream=True,
+    )
+
+    accumulated = ""
+    for chunk in stream:
+        if chunk.choices and chunk.choices[0].delta.content:
+            delta = chunk.choices[0].delta.content
+            accumulated += delta
+            yield delta, accumulated

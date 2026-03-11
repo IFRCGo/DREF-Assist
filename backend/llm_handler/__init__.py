@@ -16,6 +16,6 @@ Example usage:
     print(result["field_updates"])
 """
 
-from .handler import handle_message
+from .handler import handle_message, handle_message_stream
 
-__all__ = ["handle_message"]
+__all__ = ["handle_message", "handle_message_stream"]
