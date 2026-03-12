@@ -87,24 +87,26 @@
 # Test 11.4 — Infrastructure Damage (Tier 2 component)
 - vars:
     test_input: >
-      100 houses damaged total — 30 completely destroyed, 40 severely, 30 minor.
+      250 buildings assessed after the storm — 80 collapsed entirely,
+      120 with structural damage, 50 with cosmetic damage only.
     form_state_before: "{}"
     conversation_history: "[]"
     expected_behaviour: >
-      100 total, 30 destroyed. No double-counting (not 130).
+      250 total, 80 collapsed. No double-counting (not 250+80+120+50).
       Note: homes_damaged/homes_destroyed are not schema fields.
     ground_truth: |
       Extractable fields and correct values:
-      - event_detail.what_happened: narrative mentioning 100 houses damaged, 30 destroyed
+      - operation_overview.disaster_type: "Storm / Tropical Cyclone" (inferred from "the storm")
+      - event_detail.what_happened: narrative mentioning 250 buildings assessed, 80 collapsed
 
       Fields that must remain null:
       - operation_overview.country (not specified)
-      - event_detail.total_affected_population (houses ≠ people)
+      - event_detail.total_affected_population (buildings ≠ people)
 
       Required behaviours:
-      - Total is 100 (not 30+40+30=100 added again)
-      - 30 completely destroyed noted as subset of 100 total
-      - No double-counting: total is 100, NOT 130
+      - Total is 250 (not 80+120+50 added on top)
+      - 80 collapsed noted as subset of 250 total
+      - No double-counting: total is 250, NOT 500
       - Note: homes_damaged/homes_destroyed are not valid field IDs
   metadata:
     test_id: "11.4"

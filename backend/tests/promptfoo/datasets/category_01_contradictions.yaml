@@ -4,8 +4,8 @@
 # Test 1.1 — Direct Within-Message Contradiction (Tier 2 component)
 - vars:
     test_input: >
-      Flood in Bangladesh affecting 5,000 people, started January 15th.
-      Actually 7,000 people. Actually started January 12th. Or was it 8,000?
+      Drought in Kenya affecting 15,000 people since early March.
+      Wait, actually 20,000 people. The latest report says 18,000.
     form_state_before: "{}"
     conversation_history: "[]"
     expected_behaviour: >
@@ -13,19 +13,19 @@
       Do not use outdated figures. Present both old and new values in reply.
     ground_truth: |
       Extractable fields and correct values:
-      - operation_overview.disaster_type: "Flood"
-      - operation_overview.country: "Bangladesh"
-      - event_detail.total_affected_population: 7000 or 8000 (flag for confirmation)
-      - event_detail.date_trigger_met: "2025-01-12" (pending confirmation)
+      - operation_overview.disaster_type: "Drought"
+      - operation_overview.country: "Kenya"
+      - event_detail.total_affected_population: 18000 or 20000 (flag for confirmation)
 
       Fields that must remain null:
       - operation.requested_amount_chf (not mentioned)
       - operation_overview.region_province (not specified)
+      - event_detail.date_trigger_met ("early March" is too vague — no specific date)
 
       Required behaviours:
-      - Reply must mention both 5000 and 7000/8000
-      - Reply must mention both January 15 and January 12
+      - Reply must mention at least two of 15000, 20000, 18000
       - Contradictions surfaced — not silently resolved
+      - Values not averaged (not (15000+20000+18000)/3)
       - Tone must be calm
   metadata:
     test_id: "1.1"
@@ -65,8 +65,9 @@
 # Test 1.3 — Temporal Contradictions (Tier 2 component)
 - vars:
     test_input: >
-      Earthquake occurred last week on March 5th. Main quake hit March 3rd.
-      Actually February 28th. Response started March 1st.
+      Cyclone made landfall in Madagascar on April 10th. Initial impact
+      was actually April 8th. No wait, the storm hit on April 12th.
+      Relief convoys departed April 9th.
     form_state_before: "{}"
     conversation_history: "[]"
     expected_behaviour: >
@@ -74,16 +75,17 @@
       before populating date fields.
     ground_truth: |
       Extractable fields and correct values:
-      - operation_overview.disaster_type: "Earthquake"
+      - operation_overview.disaster_type: "Storm / Tropical Cyclone"
+      - operation_overview.country: "Madagascar"
 
       Fields that must remain null:
       - event_detail.date_trigger_met (contradictory dates — needs clarification)
-      - operation_overview.country (not specified)
 
       Required behaviours:
-      - Reply mentions at least two of: March 5, March 3, February 28
+      - Reply mentions at least two of: April 10, April 8, April 12
       - Date inconsistencies explicitly flagged
       - Clarification requested before setting date
+      - "Relief convoys departed April 9th" is a response date, not the event trigger — must not be conflated with the landfall dates
   metadata:
     test_id: "1.3"
     category: "Contradiction and conflict handling"
