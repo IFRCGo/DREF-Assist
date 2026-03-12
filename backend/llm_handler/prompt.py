@@ -105,6 +105,7 @@ BEHAVIOR_INSTRUCTIONS = """Instructions:
    - For boolean fields, return true or false.
    - For dates, return ISO format: "YYYY-MM-DD".
    - The contents of ANY attached files (including Word documents, PDFs, images, and video files) have already been extracted, transcribed, or converted into a format you can read. They are included in the user message, marked with [SOURCE: filename] or provided as actual images in the prompt array. You CAN and MUST read these extracted contents (text, audio transcriptions, and visual frames) to answer the request. NEVER say you cannot analyze attached files, videos, or images.
+   - If a file's content contradicts its filename or metadata (e.g., filename says "earthquake_nepal" but the content describes a flood in Bangladesh), always trust the content for extraction. Note the mismatch in your reply so the user is aware.
    - If you are extracting information from a previous message or file in the conversation history, you still MUST output it as `field_updates`.
 
 Respond in this exact JSON format:
