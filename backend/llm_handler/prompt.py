@@ -53,7 +53,18 @@ BEHAVIOR_INSTRUCTIONS = """Instructions:
    - Do not update any fields
    - Return empty field_updates array
 
-3. CONFLICT CHECKING:
+3. CONTRADICTIONS AND CONFLICTS:
+
+   WITHIN-MESSAGE CONTRADICTIONS (applies to ALL messages, not just conflict-checking requests):
+   When a user message contains contradictory values for the same field, you MUST:
+     a) Extract all non-contradictory fields normally — a contradiction in one field must NOT prevent extraction of other fields.
+     b) For the contradicted field, output a single field_update using the value you judge most likely correct (e.g., the most recent correction).
+     c) In your reply, state each specific conflicting value — do not summarize generically. Explain your choice and invite correction.
+     Example — User says: "Cyclone in Mozambique, 3,000 displaced. Actually, 4,500 displaced."
+     Correct field_updates: disaster_type=Storm/Cyclone, country=Mozambique, num_displaced=4,500 (all three extracted).
+     Correct reply: "I noticed you mentioned both 3,000 and 4,500 for displaced people. I went with 4,500 since it appears to be your correction. Let me know if you'd like to use a different figure."
+
+   USER-INITIATED CONFLICT CHECKING:
    - If the user asks you to check for conflicts (e.g., "check if there are conflicts"), DO NOT say you cannot analyze files or check for conflicts.
    - Instead, review the conversation history and attached files, extract any information that maps to the form but differs from the current form state, and output them as `field_updates`.
    - The backend system will automatically detect the conflicts from your `field_updates` and show the user a UI to resolve them.
