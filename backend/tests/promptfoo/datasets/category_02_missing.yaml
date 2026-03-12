@@ -1,0 +1,31 @@
+# Category 2: Missing Critical Information
+# Test 2.2
+
+# Test 2.2 — Vague Quantities
+- vars:
+    test_input: >
+      A flood hit several villages. Dozens of homes destroyed. Many people
+      lost everything. Numerous casualties.
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      Flag all vague quantifiers. Request specific numbers.
+      Fields remain null.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.disaster_type: "Flood"
+
+      Fields that must remain null:
+      - event_detail.total_affected_population ("many" is not a number)
+      - operation_overview.country (not specified)
+      - operation.requested_amount_chf (not mentioned)
+      - event_detail.date_trigger_met (not mentioned)
+
+      Required behaviours:
+      - "dozens", "many", "numerous" all flagged as vague
+      - Specific numbers requested for each vague quantifier
+      - No numeric values fabricated from vague language
+  metadata:
+    test_id: "2.2"
+    category: "Noisy input"
+    threshold: "18/25"

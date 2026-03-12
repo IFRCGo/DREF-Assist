@@ -1,0 +1,156 @@
+# Category 12: New Tests — Multi-Turn, Stateful & Systemic
+# Tests 12.6, 12.7, 12.9, 12.10, 12.12
+# (12.1-12.5, 12.8, 12.11 are Tier 1 only — handled in pytest)
+
+# Test 12.6 ★ — Evaluation Subsystem — Pass/Fail Threshold
+- vars:
+    test_input: >
+      There was a flood. Some people were affected in a place. We need money.
+    form_state_before: |
+      {
+        "operation_overview.disaster_type": "Flood",
+        "event_detail.total_affected_population": 5000
+      }
+    conversation_history: "[]"
+    expected_behaviour: >
+      Recognise that location is too vague, budget is missing, and the
+      narrative is insufficient. Request specific improvements.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.disaster_type: already set to "Flood" (no change needed)
+
+      Fields that must remain null:
+      - operation_overview.country ("a place" is too vague)
+      - operation.requested_amount_chf ("money" is not specific)
+
+      Required behaviours:
+      - Location flagged as too vague — specific country/region requested
+      - Budget flagged as missing — specific CHF amount requested
+      - Narrative quality noted as insufficient for DREF application
+      - Field-level suggestions provided for each gap
+  metadata:
+    test_id: "12.6"
+    category: "Evaluation subsystem"
+    threshold: "20/25"
+
+# Test 12.7 ★ — Evaluation Subsystem — No Hallucinated Suggestions
+- vars:
+    test_input: >
+      The flood in Bangladesh affected people. We need assistance.
+    form_state_before: |
+      {
+        "operation_overview.disaster_type": "Flood",
+        "operation_overview.country": "Bangladesh"
+      }
+    conversation_history: "[]"
+    expected_behaviour: >
+      Suggestions grounded in available information only. No fabricated
+      reference examples. States what information is missing.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.disaster_type: already "Flood" (no change)
+      - operation_overview.country: already "Bangladesh" (no change)
+
+      Fields that must remain null:
+      - event_detail.total_affected_population ("people" is not a number)
+      - operation.requested_amount_chf (not mentioned)
+
+      Required behaviours:
+      - No fabricated statistics or reference examples
+      - Suggestions cite what is actually missing (population numbers, budget, dates)
+      - No values invented to fill gaps
+  metadata:
+    test_id: "12.7"
+    category: "Evaluation subsystem"
+    threshold: "20/25"
+
+# Test 12.9 ★ — Voice Transcription Noise
+- vars:
+    test_input: >
+      uh the flood hit um bangladesh and like five thousand [inaudible]
+      people were affected and the date was um march the tenth
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      Filler words filtered. country=Bangladesh, people_affected=5000,
+      start_date=March 10. [inaudible] gap flagged.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.country: "Bangladesh"
+      - operation_overview.disaster_type: "Flood"
+      - event_detail.total_affected_population: 5000
+      - event_detail.date_trigger_met: "2025-03-10"
+
+      Fields that must remain null:
+      - operation.requested_amount_chf (not mentioned)
+
+      Required behaviours:
+      - Filler words (uh, um, like) absent from field values
+      - [inaudible] gap acknowledged in reply
+      - All extractable data correctly parsed despite noise
+  metadata:
+    test_id: "12.9"
+    category: "Noisy input"
+    threshold: "18/25"
+
+# Test 12.10 ★ — Consecutive Contradictory Messages
+- vars:
+    test_input: >
+      The affected population is definitely 7,000.
+    form_state_before: "{}"
+    conversation_history: |
+      [
+        {"role": "user", "content": "5,000 people were affected."},
+        {"role": "assistant", "content": "I've recorded 5,000 as the total affected population."},
+        {"role": "user", "content": "Actually it's 7,000 people."},
+        {"role": "assistant", "content": "I note the change from 5,000 to 7,000. Could you confirm?"},
+        {"role": "user", "content": "Wait, 5,000 was right."},
+        {"role": "assistant", "content": "Understood, reverting to 5,000. Please confirm."}
+      ]
+    expected_behaviour: >
+      Value history tracked across all turns. After message 4 saying
+      "definitely 7,000", final confirmation requested given the back-and-forth.
+    ground_truth: |
+      Extractable fields and correct values:
+      - event_detail.total_affected_population: 7000 (pending final confirmation)
+
+      Fields that must remain null:
+      - (population value needs explicit confirmation given history)
+
+      Required behaviours:
+      - Full history of changes referenced (5000 → 7000 → 5000 → 7000)
+      - Final confirmation explicitly requested despite "definitely"
+      - Contradictory history acknowledged
+      - Value not silently set without acknowledging the back-and-forth
+  metadata:
+    test_id: "12.10"
+    category: "Contradiction and conflict handling"
+    threshold: "20/25"
+
+# Test 12.12 ★ — Partial OCR Extraction
+- vars:
+    test_input: >
+      FIood - 4OOO fami1ies - [illegible] - March [illegible]
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      Disaster=Flood, families=4000 extracted despite corruption.
+      Location and date flagged as illegible — not fabricated.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.disaster_type: "Flood" (from "FIood" with OCR corruption)
+      - event_detail.total_affected_population: 4000 (from "4OOO" with OCR corruption)
+
+      Fields that must remain null:
+      - operation_overview.country ([illegible])
+      - event_detail.date_trigger_met ("March [illegible]" — incomplete)
+
+      Required behaviours:
+      - OCR corruption correctly parsed (FIood→Flood, 4OOO→4000)
+      - [illegible] sections flagged — not fabricated
+      - Input not entirely rejected despite corruption
+      - Missing information requested (location, full date)
+  metadata:
+    test_id: "12.12"
+    category: "Noisy input"
+    threshold: "18/25"

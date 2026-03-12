@@ -1,0 +1,88 @@
+# Category 4: Language & Translation Issues
+# Tests 4.1, 4.2, 4.3
+
+# Test 4.1 — Mixed Language Content
+- vars:
+    test_input: >
+      Une inondation grave a affecté 5,000 personnes à Dhaka.
+      El desastre comenzó el 15 de enero.
+      We need CHF 250,000.
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      Consistent extraction across all languages. Single disaster.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.disaster_type: "Flood"
+      - operation_overview.country: "Bangladesh"
+      - operation_overview.region_province: "Dhaka"
+      - event_detail.date_trigger_met: "2025-01-15"
+      - event_detail.total_affected_population: 5000
+      - operation.requested_amount_chf: 250000
+
+      Fields that must remain null:
+      - (all key fields are extractable from this input)
+
+      Required behaviours:
+      - French, Spanish, and English all parsed correctly
+      - Single coherent event recognized (not three separate events)
+  metadata:
+    test_id: "4.1"
+    category: "Language and geographic"
+    threshold: "20/25"
+
+# Test 4.2 — Translation Confusion
+- vars:
+    test_input: >
+      Disaster affected 'millón' people. Wait, I mean 'million' is 1,000,000.
+      Actually I meant 'mil' = 1,000.
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      Final stated value = 1,000. Flag linguistic confusion.
+      Request confirmation.
+    ground_truth: |
+      Extractable fields and correct values:
+      - event_detail.total_affected_population: 1000 (pending confirmation)
+
+      Fields that must remain null:
+      - operation_overview.country (not specified)
+      - operation_overview.disaster_type (not specified beyond "disaster")
+
+      Required behaviours:
+      - Ambiguity from millón/million/mil flagged
+      - Final stated value (mil = 1000) used
+      - Confirmation explicitly requested
+  metadata:
+    test_id: "4.2"
+    category: "Noisy input"
+    threshold: "18/25"
+
+# Test 4.3 — South Asian Numeric Units
+- vars:
+    test_input: >
+      The flood affected one lakh people. Budget needed is 50 crore rupees.
+      Around 5 thousand families displaced.
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      1 lakh = 100,000. 50 crore rupees flagged for CHF conversion.
+      5 thousand = 5,000.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.disaster_type: "Flood"
+      - event_detail.total_affected_population: 100000
+
+      Fields that must remain null:
+      - operation.requested_amount_chf (50 crore rupees requires CHF conversion — not provided)
+      - operation_overview.country (not explicitly stated)
+
+      Required behaviours:
+      - "lakh" correctly converted to 100,000
+      - "5 thousand" correctly interpreted as 5000
+      - Budget noted as 50 crore rupees with need for CHF conversion
+      - CHF amount NOT fabricated from rupee figure
+  metadata:
+    test_id: "4.3"
+    category: "Language and geographic"
+    threshold: "20/25"

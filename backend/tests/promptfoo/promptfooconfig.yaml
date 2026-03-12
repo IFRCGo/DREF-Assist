@@ -1,0 +1,43 @@
+# DREF Assist LLM Handler — Tier 2 Evaluation Configuration
+#
+# Runs rubric-scored evaluation using GPT-4o as judge.
+# Only tests that cannot be checked with hard-coded assertions belong here.
+#
+# Usage:
+#   cd backend/tests/promptfoo
+#   npx promptfoo eval
+#   npx promptfoo view  # opens results in browser
+
+description: "DREF Assist LLM Handler — Tier 2 Rubric Evaluation"
+
+providers:
+  - id: "python:provider.py"
+    label: "DREF Assist LLM Handler (Azure GPT-4o)"
+
+prompts:
+  - "{{test_input}}"
+
+defaultTest:
+  assert:
+    - type: llm-rubric
+      provider:
+        id: "azureopenai:chat:gpt-4o"
+        config:
+          apiHost: "openai-api-dref-assist.openai.azure.com"
+      value: "file://judge_prompt.txt"
+
+tests:
+  - file://datasets/category_01_contradictions.yaml
+  - file://datasets/category_02_missing.yaml
+  - file://datasets/category_03_multi_event.yaml
+  - file://datasets/category_04_language.yaml
+  - file://datasets/category_05_numeric.yaml
+  - file://datasets/category_06_dates.yaml
+  - file://datasets/category_07_geographic.yaml
+  - file://datasets/category_08_budget.yaml
+  - file://datasets/category_09_unstructured.yaml
+  - file://datasets/category_10_adversarial.yaml
+  - file://datasets/category_11_edge_cases.yaml
+  - file://datasets/category_12_new_tests.yaml
+
+outputPath: "../results/latest/tier2_results.json"

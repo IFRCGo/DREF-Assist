@@ -1,0 +1,28 @@
+# Category 7: Geographic Ambiguities
+# Test 7.2
+
+# Test 7.2 — Similar Place Names
+- vars:
+    test_input: >
+      Cyclone hit Victoria. Alexandria also affected.
+      Cambridge suffered damage.
+    form_state_before: "{}"
+    conversation_history: "[]"
+    expected_behaviour: >
+      All three flagged as ambiguous. Country specification requested.
+    ground_truth: |
+      Extractable fields and correct values:
+      - operation_overview.disaster_type: "Cyclone"
+
+      Fields that must remain null:
+      - operation_overview.country (Victoria, Alexandria, Cambridge exist in multiple countries)
+      - operation_overview.region_province (ambiguous without country)
+
+      Required behaviours:
+      - All three place names flagged as ambiguous
+      - Country specification requested
+      - No country guessed or assumed
+  metadata:
+    test_id: "7.2"
+    category: "Noisy input"
+    threshold: "18/25"
