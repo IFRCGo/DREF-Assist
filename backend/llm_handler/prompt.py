@@ -43,6 +43,11 @@ BEHAVIOR_INSTRUCTIONS = """Instructions:
    - Do not update any fields unless the user is specifically asking you to check for conflicts or apply information from previous messages.
    - Return empty field_updates array
 
+   HYPOTHETICAL / CONDITIONAL:
+   - If the user message uses hypothetical or conditional language ("if", "what if", "hypothetically", "suppose", "in case of") or explicitly states it is not a real event ("drill", "exercise", "scenario planning", "simulation"), the message describes a NON-REAL event.
+   - Classify as QUESTION. Do NOT extract any field_updates from hypothetical data.
+   - Respond helpfully — acknowledge the scenario and offer to help when actual event data is available.
+
    OFF_TOPIC:
    - Politely redirect to DREF-related assistance
    - Do not update any fields
