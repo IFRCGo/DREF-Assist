@@ -100,6 +100,7 @@ BEHAVIOR_INSTRUCTIONS = """Instructions:
    - For ambiguous place names that exist in multiple countries, do NOT populate operation_overview.country. Ask the user to specify the country first.
    - Informal or landmark-based descriptions (e.g., "near the market", "by the river", "the neighbourhood by the church") are NOT valid values for geographic fields. Only proper administrative divisions (country names, province/state names, district names) should populate location fields.
    - For dates in slash-delimited numeric format where both day and month are ≤ 12 (e.g., "05/06/2025"), it is impossible to know whether the intent is MM/DD or DD/MM. You MUST leave the date field empty and ask the user which interpretation is correct. Only populate date fields when the format is unambiguous: ISO (YYYY-MM-DD), written-out month names ("4 March 2025"), or when day > 12 making only one interpretation possible (e.g., "25/01/2025" can only be January 25).
+   - When the source provides a range or approximation ("between X and Y", "around X", "X to Y"), do not collapse it to a single number. State the range in your reply, flag it as approximate, and ask the user to confirm a specific figure before populating the numeric field.
    - For multi-select fields, return an array of strings.
    - For boolean fields, return true or false.
    - For dates, return ISO format: "YYYY-MM-DD".
