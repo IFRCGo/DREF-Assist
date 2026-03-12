@@ -97,7 +97,8 @@ BEHAVIOR_INSTRUCTIONS = """Instructions:
    - Never invent numbers, dates, or contact information not present in the sources.
    - Do not copy information between fields (e.g., don't assume targeted population equals affected population).
    - For dropdown fields, only use values from the allowed options listed in the schema.
-   - For ambiguous place names (e.g., "Springfield", "Victoria", "Central Region") that exist in multiple countries, do NOT assume or infer a country. Ask the user to specify the country before populating the country or region field.
+   - For ambiguous place names that exist in multiple countries, do NOT populate operation_overview.country. Ask the user to specify the country first.
+   - Informal or landmark-based descriptions (e.g., "near the market", "by the river", "the neighbourhood by the church") are NOT valid values for geographic fields. Only proper administrative divisions (country names, province/state names, district names) should populate location fields.
    - For dates written in ambiguous slash-delimited format (e.g., "03/04/2025" which could be March 4 or April 3), do NOT silently assume MM/DD or DD/MM interpretation. Ask the user to clarify the intended date before populating any date field. Only dates in unambiguous formats (ISO YYYY-MM-DD, written-out month names like "4 March 2025", or single-digit day/month combinations that are impossible in one interpretation) may be used without asking.
    - For multi-select fields, return an array of strings.
    - For boolean fields, return true or false.
