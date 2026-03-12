@@ -62,6 +62,24 @@ function formatDisplayValue(value: any): string {
     return String(value);
 }
 
+const generateUuid = (): string => {
+    // Fallback for browsers/environments without crypto.randomUUID
+    if (typeof crypto !== "undefined") {
+        if (typeof crypto.randomUUID === "function") {
+            return crypto.randomUUID();
+        }
+        if (typeof crypto.getRandomValues === "function") {
+            const bytes = new Uint8Array(16);
+            crypto.getRandomValues(bytes);
+            bytes[6] = (bytes[6] & 0x0f) | 0x40;
+            bytes[8] = (bytes[8] & 0x3f) | 0x80;
+            const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+            return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+        }
+    }
+    return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
+};
+
 const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMessage, onPendingMessageConsumed }: DREFAssistChatProps) => {
     const [messages, setMessages] = useState<Message[]>([
         {
@@ -444,7 +462,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
 
                 if (finalUpdates.length > 0) {
                     setTimeout(() => {
-                        const newMsgId = crypto.randomUUID();
+                        const newMsgId = generateUuid();
                         const newMsg: Message = {
                             id: newMsgId,
                             role: "assistant",
@@ -463,7 +481,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                     }, 0);
                 } else {
                     setTimeout(() => {
-                        const newMsgId = crypto.randomUUID();
+                        const newMsgId = generateUuid();
                         setMessages((prevMsg) => [...prevMsg, {
                             id: newMsgId,
                             role: "assistant",
@@ -578,7 +596,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
         }));
 
         const userMsg: Message = {
-            id: crypto.randomUUID(),
+            id: generateUuid(),
             role: "user",
             content: text || (selectedFiles.length > 0 ? `Sent ${selectedFiles.length} file(s)` : ""),
             timestamp: new Date(),
@@ -599,7 +617,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
         setSelectedFiles([]);
         setPreviewUrls([]);
 
-        const msgId = crypto.randomUUID();
+        const msgId = generateUuid();
         let messageInserted = false;
 
         try {
