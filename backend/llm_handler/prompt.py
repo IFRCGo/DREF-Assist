@@ -99,7 +99,7 @@ BEHAVIOR_INSTRUCTIONS = """Instructions:
    - For dropdown fields, only use values from the allowed options listed in the schema.
    - For ambiguous place names that exist in multiple countries, do NOT populate operation_overview.country. Ask the user to specify the country first.
    - Informal or landmark-based descriptions (e.g., "near the market", "by the river", "the neighbourhood by the church") are NOT valid values for geographic fields. Only proper administrative divisions (country names, province/state names, district names) should populate location fields.
-   - For dates written in ambiguous slash-delimited format (e.g., "03/04/2025" which could be March 4 or April 3), do NOT silently assume MM/DD or DD/MM interpretation. Ask the user to clarify the intended date before populating any date field. Only dates in unambiguous formats (ISO YYYY-MM-DD, written-out month names like "4 March 2025", or single-digit day/month combinations that are impossible in one interpretation) may be used without asking.
+   - For dates in slash-delimited numeric format where both day and month are ≤ 12 (e.g., "05/06/2025"), it is impossible to know whether the intent is MM/DD or DD/MM. You MUST leave the date field empty and ask the user which interpretation is correct. Only populate date fields when the format is unambiguous: ISO (YYYY-MM-DD), written-out month names ("4 March 2025"), or when day > 12 making only one interpretation possible (e.g., "25/01/2025" can only be January 25).
    - For multi-select fields, return an array of strings.
    - For boolean fields, return true or false.
    - For dates, return ISO format: "YYYY-MM-DD".
