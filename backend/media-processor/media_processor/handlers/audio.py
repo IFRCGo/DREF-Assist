@@ -9,7 +9,7 @@ from media_processor.utils.transcription import transcribe_audio, TranscriptionE
 class AudioHandler:
     """Handler for audio files (MP3, WAV, M4A, OGG)."""
 
-    SUPPORTED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg"}
+    SUPPORTED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".webm"}
     MAX_SIZE_BYTES = 50 * 1024 * 1024  # 50MB
 
     def process(self, file_input: FileInput, source_index: int) -> SourceResult:

@@ -151,6 +151,7 @@ MIME_TO_FILE_TYPE = {
     "audio/x-wav": "audio",
     "audio/mp4": "audio",
     "audio/ogg": "audio",
+    "audio/webm": "audio",
     "application/pdf": "pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
 }
@@ -158,7 +159,7 @@ MIME_TO_FILE_TYPE = {
 EXT_TO_FILE_TYPE = {
     ".jpg": "image", ".jpeg": "image", ".png": "image", ".webp": "image", ".gif": "image",
     ".mp4": "video", ".mov": "video", ".avi": "video",
-    ".mp3": "audio", ".wav": "audio", ".m4a": "audio", ".ogg": "audio",
+    ".mp3": "audio", ".wav": "audio", ".m4a": "audio", ".ogg": "audio", ".webm": "audio",
     ".pdf": "pdf",
     ".docx": "docx",
 }
