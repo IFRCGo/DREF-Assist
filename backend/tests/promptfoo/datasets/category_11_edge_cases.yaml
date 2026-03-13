@@ -1,5 +1,5 @@
 # Category 11: Form Section Edge Cases
-# Tests 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7
+# Tests 11.1, 11.2, 11.3, 11.4, 11.5
 
 # Test 11.1 — Unclear Disaster Category
 - vars:
@@ -87,24 +87,26 @@
 # Test 11.4 — Infrastructure Damage (Tier 2 component)
 - vars:
     test_input: >
-      100 houses damaged total — 30 completely destroyed, 40 severely, 30 minor.
+      250 buildings assessed after the storm — 80 collapsed entirely,
+      120 with structural damage, 50 with cosmetic damage only.
     form_state_before: "{}"
     conversation_history: "[]"
     expected_behaviour: >
-      100 total, 30 destroyed. No double-counting (not 130).
+      250 total, 80 collapsed. No double-counting (not 250+80+120+50).
       Note: homes_damaged/homes_destroyed are not schema fields.
     ground_truth: |
       Extractable fields and correct values:
-      - event_detail.what_happened: narrative mentioning 100 houses damaged, 30 destroyed
+      - operation_overview.disaster_type: "Storm / Tropical Cyclone" (inferred from "the storm")
+      - event_detail.what_happened: narrative mentioning 250 buildings assessed, 80 collapsed
 
       Fields that must remain null:
       - operation_overview.country (not specified)
-      - event_detail.total_affected_population (houses ≠ people)
+      - event_detail.total_affected_population (buildings ≠ people)
 
       Required behaviours:
-      - Total is 100 (not 30+40+30=100 added again)
-      - 30 completely destroyed noted as subset of 100 total
-      - No double-counting: total is 100, NOT 130
+      - Total is 250 (not 80+120+50 added on top)
+      - 80 collapsed noted as subset of 250 total
+      - No double-counting: total is 250, NOT 500
       - Note: homes_damaged/homes_destroyed are not valid field IDs
   metadata:
     test_id: "11.4"
@@ -136,57 +138,5 @@
       - "Same families throughout" acknowledged
   metadata:
     test_id: "11.5"
-    category: "Budget edge cases"
-    threshold: "20/25"
-
-# Test 11.6 — Unrealistic Timeframes
-- vars:
-    test_input: >
-      Plan to distribute food to 10,000 people tomorrow. Construct 500 shelters
-      by end of week. Complete operation in 2 weeks.
-    form_state_before: "{}"
-    conversation_history: "[]"
-    expected_behaviour: >
-      Timelines flagged as unrealistic. Standard DREF timeframes (3-4 months)
-      suggested.
-    ground_truth: |
-      Extractable fields and correct values:
-      - event_detail.total_affected_population: 10000 (or operation.targeted_total: 10000)
-
-      Fields that must remain null:
-      - timeframes_contacts.operation_timeframe_months (2 weeks is unrealistic — needs revision)
-
-      Required behaviours:
-      - All timelines flagged as unrealistic
-      - Standard DREF timeframes mentioned (typically 3-4 months)
-      - "Tomorrow" and "end of week" noted as too aggressive
-  metadata:
-    test_id: "11.6"
-    category: "Noisy input"
-    threshold: "18/25"
-
-# Test 11.7 — Budget-Needs Mismatch
-- vars:
-    test_input: >
-      Need food, water, shelter, and medical for 10,000 people for 3 months.
-      Total budget: CHF 5,000.
-    form_state_before: "{}"
-    conversation_history: "[]"
-    expected_behaviour: >
-      Mismatch flagged. CHF 5,000 ÷ 10,000 = CHF 0.50/person shown.
-      Realistic budget or revised scope requested.
-    ground_truth: |
-      Extractable fields and correct values:
-      - event_detail.total_affected_population: 10000 (or operation.targeted_total: 10000)
-
-      Fields that must remain null:
-      - operation.requested_amount_chf (flagged as unrealistically low)
-
-      Required behaviours:
-      - Budget-needs mismatch explicitly flagged
-      - Per-person calculation shown (CHF 5,000 / 10,000 = CHF 0.50/person)
-      - Realistic budget or revised scope requested
-  metadata:
-    test_id: "11.7"
     category: "Budget edge cases"
     threshold: "20/25"

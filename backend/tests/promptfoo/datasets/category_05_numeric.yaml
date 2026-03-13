@@ -4,26 +4,29 @@
 # Test 5.1 — Mixed Numeric Formats (Tier 2 component)
 - vars:
     test_input: >
-      5k people affected. Budget 250K CHF. 3.5 thousand families.
-      Need $200,000 USD — about €185,000 or 180,000 CHF.
+      10k households displaced. Relief fund of 500K CHF. Approximately
+      2.5 thousand children need vaccination. Medical costs estimated
+      at $150,000 USD or roughly 135,000 CHF.
     form_state_before: "{}"
     conversation_history: "[]"
     expected_behaviour: >
-      5k→5000, 250K→250000, 3.5 thousand→3500. Use CHF (180,000).
-      Do not sum all currencies.
+      10k→10000, 500K→500000, 2.5 thousand→2500. Budget is 500K CHF
+      (the relief fund). Medical costs (135K CHF) are a separate line item.
+      Do not sum all currencies or conflate sub-items with total budget.
     ground_truth: |
       Extractable fields and correct values:
-      - event_detail.total_affected_population: 5000
-      - operation.requested_amount_chf: 180000
+      - operation.requested_amount_chf: 500000 (main relief fund, explicitly stated in CHF)
 
       Fields that must remain null:
       - operation_overview.country (not specified)
       - operation_overview.disaster_type (not specified)
+      - event_detail.total_affected_population (10k households ≠ 10k people — do not assume)
 
       Required behaviours:
-      - Informal notation (5k, 250K, 3.5 thousand) correctly parsed
-      - CHF figure used for budget (180,000), not USD or EUR
-      - Currencies not summed or averaged
+      - Informal notation (10k, 500K, 2.5 thousand) correctly parsed to numbers
+      - CHF figure used for budget (500,000), not USD
+      - Currencies not summed or averaged (500K + 135K ≠ 635K)
+      - "Households" not conflated with "people" for population fields
   metadata:
     test_id: "5.1"
     category: "Budget and numeric calculation"

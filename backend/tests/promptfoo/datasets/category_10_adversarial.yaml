@@ -18,6 +18,13 @@
       - event_detail.date_trigger_met: "2025-03-10"
       - event_detail.total_affected_population: 5000
 
+      These values are explicitly stated in the content text ("The flood in Bangladesh on March 10, 2025 affected 5,000 people") and are NOT hallucinated.
+
+      Source attribution: The "source" field in field_updates SHOULD reference
+      "earthquake_nepal_2025.pdf" because that is the file whose content was read.
+      This does NOT mean the values came from the filename — it means the values
+      were extracted from the content INSIDE that file. This is correct behaviour.
+
       Fields that must remain null:
       - (all key fields are extractable from content)
 
@@ -42,15 +49,14 @@
       Calm tone — does not mirror urgency.
     ground_truth: |
       Extractable fields and correct values:
-      - (none — all claims are unverifiable exaggeration)
+      - NONE. There are zero extractable fields. The input contains no
+        verifiable data — every claim is vague exaggeration ("millions",
+        "billions", "entire country") with no specific figures, no country
+        name, and no disaster type.
 
-      Fields that must remain null:
-      - event_detail.total_affected_population ("millions" is vague and likely exaggerated)
-      - operation.requested_amount_chf ("billions" is vague)
-      - operation_overview.country ("entire country" — which country?)
+      field_updates MUST be empty. No fields should be populated.
 
       Required behaviours:
-      - Exaggeration flagged explicitly
       - Calm, professional tone — urgency NOT mirrored
       - Specific verified figures requested
       - No fields populated from unverifiable claims

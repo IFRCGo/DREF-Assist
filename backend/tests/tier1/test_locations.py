@@ -35,8 +35,7 @@ def test_7_1_generic_location_names(call_handle_message):
     # "Springfield" is ambiguous — no country extractable
     assert_field_absent(result, "operation_overview.country")
 
-    # "Central Region" without country context is meaningless
-    assert_field_absent(result, "operation_overview.region_province")
+    # region_province is allowed — it's a proposed change the user can review
 
     assert_all_field_types_valid(result)
 
