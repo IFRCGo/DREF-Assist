@@ -114,6 +114,10 @@ const Index = () => {
     setEvaluationOpen(false);
   }, []);
 
+  const handlePendingMessageConsumed = useCallback(() => {
+    setPendingChatMessage(null);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <IFRCHeader />
@@ -261,7 +265,7 @@ const Index = () => {
         onFieldUpdates={handleFieldUpdates}
         isOpen={chatOpen}
         pendingMessage={pendingChatMessage}
-        onPendingMessageConsumed={() => setPendingChatMessage(null)}
+        onPendingMessageConsumed={handlePendingMessageConsumed}
       />
     </div>
   );

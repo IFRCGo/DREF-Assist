@@ -8,9 +8,17 @@ This module implements the two-pass evaluation system for DREF applications:
 
 import json
 import os
+import time
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
+
+from openai import RateLimitError, APITimeoutError
+
+# LLM timeout and retry configuration
+LLM_TIMEOUT = 30  # seconds - prevents hanging on Azure OpenAI calls
+LLM_MAX_RETRIES = 3  # maximum number of retry attempts
+LLM_RETRY_BASE_DELAY = 1  # seconds - initial delay for exponential backoff
 
 
 @dataclass
@@ -430,7 +438,18 @@ class DrefEvaluator:
         text_criteria: List[Dict],
         form_state: Dict[str, Any],
     ) -> str:
-        """Build an LLM prompt to evaluate multiple text criteria at once."""
+        """Build an LLM prompt to evaluate multiple text criteria at once.
+        
+        Enhanced to assess quality attributes from needs assessment standards:
+        - Detail and clarity of analysis
+        - Evidence and source transparency
+        - Prioritization and ranking
+        - Root cause/driver analysis
+        - Severity assessment
+        - Assumptions and limitations
+        - Confidence levels
+        - Actionability and specificity
+        """
         items = []
         for criterion in text_criteria:
             field_name = criterion["field"]
@@ -444,16 +463,37 @@ class DrefEvaluator:
             })
 
         prompt = (
-            "You are an IFRC DREF (Disaster Relief Emergency Fund) quality evaluator.\n\n"
-            "Evaluate each field below against its criterion. Be strict but fair:\n"
-            '- "accept" if the text adequately addresses the criterion requirements\n'
-            '- "dont_accept" if the text is missing, too vague, incomplete, or does '
-            "not address what the criterion asks for\n\n"
+            "You are an IFRC DREF (Disaster Relief Emergency Fund) quality evaluator.\n"
+            "You assess DREF applications against quality standards for needs assessments.\n\n"
+            "YOUR TASK:\n"
+            "For each criterion below, check if the provided field content adequately addresses "
+            "WHAT THE CRITERION IS ASKING FOR, while also meeting quality standards.\n\n"
+            "CRITERION REQUIREMENT:\n"
+            "- Carefully read the 'criterion' field - this defines what must be in the content\n"
+            "- Read the 'guidance' field - this explains best practices\n"
+            "- Check if 'field_value' actually addresses the criterion requirement\n"
+            "- If criterion not met = dont_accept\n\n"
+            "QUALITY STANDARDS TO ASSESS:\n"
+            "1. DETAIL & CLARITY: Issues/needs are clearly and thoroughly explained\n"
+            "2. EVIDENCE & SOURCES: Findings are backed by data/sources, not assumptions\n"
+            "3. PRIORITIZATION: Issues are ranked or prioritized (e.g., 'most critical', 'secondary')\n"
+            "4. ROOT CAUSE ANALYSIS: Underlying drivers and causes are identified, not just symptoms\n"
+            "5. SEVERITY ASSESSMENT: Severity levels are explicitly stated (critical/severe/moderate/minor)\n"
+            "6. ASSUMPTIONS & LIMITATIONS: Key assumptions and information gaps are acknowledged\n"
+            "7. CONFIDENCE LEVELS: Uncertainty or confidence in findings is expressed\n"
+            "8. ACTIONABILITY: Recommendations are specific and address identified issues\n\n"
+            "DECISION RULES:\n"
+            '- "accept": Field content DIRECTLY ADDRESSES THE CRITERION and demonstrates detail, '
+            "evidence, and clarity\n"
+            '- "dont_accept": Field content FAILS to address the criterion OR lacks detail/evidence/'
+            "clarity. Missing field = dont_accept.\n"
+            "- IMPORTANT: Be strict. Simple statements without depth = dont_accept.\n\n"
             "For each criterion, provide:\n"
             '- outcome: "accept" or "dont_accept"\n'
-            "- reasoning: 1-2 sentence explanation\n"
-            "- improvement_suggestion: If dont_accept, specific guidance on what to "
-            "add/improve. Empty string if accept.\n\n"
+            "- reasoning: 1-2 sentences explaining whether/why the criterion is met, "
+            "referencing the criterion requirement\n"
+            "- improvement_suggestion: If dont_accept, specific guidance on what content to add "
+            "to meet the criterion (use guidance as reference). Empty string if accept.\n\n"
             f"Criteria to evaluate:\n{json.dumps(items, indent=2)}\n\n"
             "Respond in this exact JSON format:\n"
             "{\n"
@@ -501,14 +541,33 @@ class DrefEvaluator:
         prompt = self._build_evaluation_prompt(non_empty_criteria, form_state)
 
         try:
-            response = self.llm_client.chat.completions.create(
-                model=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                response_format={"type": "json_object"},
-            )
-            raw = json.loads(response.choices[0].message.content)
-            evaluations = {e["criterion_id"]: e for e in raw.get("evaluations", [])}
+            # Retry logic with exponential backoff
+            last_error = None
+            for attempt in range(LLM_MAX_RETRIES):
+                try:
+                    response = self.llm_client.chat.completions.create(
+                        model=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=0.1,
+                        response_format={"type": "json_object"},
+                        timeout=LLM_TIMEOUT,
+                    )
+                    raw = json.loads(response.choices[0].message.content)
+                    evaluations = {e["criterion_id"]: e for e in raw.get("evaluations", [])}
+                    break  # Success, exit retry loop
+                except (RateLimitError, APITimeoutError) as e:
+                    last_error = e
+                    if attempt < LLM_MAX_RETRIES - 1:
+                        delay = LLM_RETRY_BASE_DELAY * (2 ** attempt)
+                        print(f"LLM API error (attempt {attempt + 1}/{LLM_MAX_RETRIES}): {type(e).__name__}. Retrying in {delay}s...")
+                        time.sleep(delay)
+                    else:
+                        print(f"LLM API error after {LLM_MAX_RETRIES} attempts: {str(e)}")
+                        raise last_error
+            else:
+                # If we get here, last attempt didn't succeed
+                if last_error:
+                    raise last_error
         except Exception:
             # LLM call failed — fall back to rule-based for all
             for criterion in non_empty_criteria:
