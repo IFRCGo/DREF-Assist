@@ -6,6 +6,7 @@ This module implements the two-pass evaluation system for DREF applications:
 - Pass 2: Comparative Analysis - Uses reference examples for improvement suggestions (only if needed)
 """
 
+import asyncio
 import json
 import os
 import time
@@ -150,6 +151,35 @@ class DrefEvaluator:
         result.pass_one_completed = True
 
         # Pass 2: Comparative Analysis (only if there are issues)
+        if result.overall_status == 'needs_revision':
+            result = self._pass_two_comparative_analysis(result, form_state)
+            result.pass_two_completed = True
+
+        return result
+
+    async def evaluate_async(self, dref_id: int, form_state: Dict[str, Any]) -> EvaluationResult:
+        """
+        Perform complete evaluation with all sections evaluated concurrently.
+        Each section's LLM call runs in a thread via asyncio.to_thread so they
+        execute in parallel rather than serially.
+        """
+        result = EvaluationResult(dref_id=dref_id)
+        section_names = list(self.rubric.get_all_sections().keys())
+
+        section_results_list = await asyncio.gather(*[
+            asyncio.to_thread(self.evaluate_section, name, form_state)
+            for name in section_names
+        ])
+
+        has_required_failures = False
+        for name, sr in zip(section_names, section_results_list):
+            result.section_results[name] = sr
+            if sr.status == 'needs_revision':
+                has_required_failures = True
+
+        result.overall_status = 'needs_revision' if has_required_failures else 'accepted'
+        result.pass_one_completed = True
+
         if result.overall_status == 'needs_revision':
             result = self._pass_two_comparative_analysis(result, form_state)
             result.pass_two_completed = True
