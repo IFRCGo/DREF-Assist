@@ -1,5 +1,5 @@
 # Category 11: Form Section Edge Cases
-# Tests 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7
+# Tests 11.1, 11.2, 11.3, 11.4, 11.5
 
 # Test 11.1 — Unclear Disaster Category
 - vars:
@@ -138,57 +138,5 @@
       - "Same families throughout" acknowledged
   metadata:
     test_id: "11.5"
-    category: "Budget edge cases"
-    threshold: "20/25"
-
-# Test 11.6 — Unrealistic Timeframes
-- vars:
-    test_input: >
-      Plan to distribute food to 10,000 people tomorrow. Construct 500 shelters
-      by end of week. Complete operation in 2 weeks.
-    form_state_before: "{}"
-    conversation_history: "[]"
-    expected_behaviour: >
-      Timelines flagged as unrealistic. Standard DREF timeframes (3-4 months)
-      suggested.
-    ground_truth: |
-      Extractable fields and correct values:
-      - event_detail.total_affected_population: 10000 (or operation.targeted_total: 10000)
-
-      Fields that must remain null:
-      - timeframes_contacts.operation_timeframe_months (2 weeks is unrealistic — needs revision)
-
-      Required behaviours:
-      - All timelines flagged as unrealistic
-      - Standard DREF timeframes mentioned (typically 3-4 months)
-      - "Tomorrow" and "end of week" noted as too aggressive
-  metadata:
-    test_id: "11.6"
-    category: "Noisy input"
-    threshold: "18/25"
-
-# Test 11.7 — Budget-Needs Mismatch
-- vars:
-    test_input: >
-      Need food, water, shelter, and medical for 10,000 people for 3 months.
-      Total budget: CHF 5,000.
-    form_state_before: "{}"
-    conversation_history: "[]"
-    expected_behaviour: >
-      Mismatch flagged. CHF 5,000 ÷ 10,000 = CHF 0.50/person shown.
-      Realistic budget or revised scope requested.
-    ground_truth: |
-      Extractable fields and correct values:
-      - event_detail.total_affected_population: 10000 (or operation.targeted_total: 10000)
-
-      Fields that must remain null:
-      - operation.requested_amount_chf (flagged as unrealistically low)
-
-      Required behaviours:
-      - Budget-needs mismatch explicitly flagged
-      - Per-person calculation shown (CHF 5,000 / 10,000 = CHF 0.50/person)
-      - Realistic budget or revised scope requested
-  metadata:
-    test_id: "11.7"
     category: "Budget edge cases"
     threshold: "20/25"

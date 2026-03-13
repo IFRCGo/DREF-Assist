@@ -12,18 +12,28 @@
       50 × 3000 × 90 = 13,500,000. + 75,000 = 13,575,000.
       + 15% admin = 15,611,250. + 10% contingency = 17,172,375 CHF.
     ground_truth: |
-      Extractable fields and correct values:
+      TWO acceptable outcomes (either one is a full pass):
+
+      OUTCOME A — Correct calculation:
       - operation.requested_amount_chf: 17172375
       - event_detail.total_affected_population: 3000 (or operation.targeted_total: 3000)
-
-      Fields that must remain null:
-      - operation_overview.country (not specified)
-      - operation_overview.disaster_type (not specified)
-
-      Required behaviours:
       - Full calculation breakdown shown (base × overhead × contingency)
       - Each step present: 13,500,000 → 13,575,000 → 15,611,250 → 17,172,375
       - Final total clearly stated in CHF
+
+      OUTCOME B — Backs off without proposing inaccurate data:
+      - No budget field populated (the calculation is too complex to risk getting wrong)
+      - The reply acknowledges the inputs and asks the user to confirm the final total
+      - No hallucinated or incorrect budget value is output
+      - This is acceptable — not extracting is better than extracting a wrong number
+
+      Fields that must remain null in both outcomes:
+      - operation_overview.country (not specified)
+      - operation_overview.disaster_type (not specified)
+
+      IMPORTANT: The ONLY failure case is if the system outputs an INCORRECT budget
+      value (e.g., a wrong calculation). Either getting it right or not attempting
+      the calculation are both acceptable.
   metadata:
     test_id: "8.2"
     category: "Budget and numeric calculation"

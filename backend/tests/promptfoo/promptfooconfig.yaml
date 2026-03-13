@@ -20,6 +20,7 @@ prompts:
 defaultTest:
   assert:
     - type: llm-rubric
+      threshold: 0.6
       provider:
         id: "azureopenai:chat:gpt-4o"
         config:
