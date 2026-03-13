@@ -5,10 +5,12 @@ Stateless API that orchestrates media processing, LLM interaction,
 conflict detection, and DREF evaluation.
 """
 
+import hashlib
 import json
 import base64
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -313,6 +315,18 @@ def _postprocess_evaluation(result_dict: dict) -> dict:
     return result_dict
 
 
+# --- Evaluation cache ---
+# Keyed on sha256(json.dumps(rubric_state, sort_keys=True)); 10-min TTL.
+_eval_cache: Dict[str, tuple] = {}
+_CACHE_TTL = 600  # seconds
+
+
+def _eval_cache_key(rubric_state: Dict[str, Any]) -> str:
+    return hashlib.sha256(
+        json.dumps(rubric_state, sort_keys=True, default=str).encode()
+    ).hexdigest()
+
+
 # --- Endpoints ---
 
 @app.get("/api/health")
@@ -391,9 +405,20 @@ async def evaluate(request: EvaluateRequest):
     """Full DREF evaluation against IFRC rubric."""
     plain_state = _extract_plain_values(request.form_state)
     rubric_state = _map_frontend_to_rubric(plain_state)
+
+    key = _eval_cache_key(rubric_state)
+    cached = _eval_cache.get(key)
+    if cached:
+        result_dict, ts = cached
+        if time.monotonic() - ts < _CACHE_TTL:
+            return result_dict
+
     evaluator = DrefEvaluator(llm_client=_create_llm_client())
-    result = evaluator.evaluate(dref_id=0, form_state=rubric_state)
-    return _postprocess_evaluation(evaluator.to_dict(result))
+    result = await evaluator.evaluate_async(dref_id=0, form_state=rubric_state)
+    result_dict = _postprocess_evaluation(evaluator.to_dict(result))
+
+    _eval_cache[key] = (result_dict, time.monotonic())
+    return result_dict
 
 
 @app.post("/api/evaluate/section")
