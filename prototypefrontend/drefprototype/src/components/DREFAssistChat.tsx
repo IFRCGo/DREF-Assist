@@ -26,7 +26,6 @@ interface Message {
     content: string;
     timestamp: Date;
     saved?: boolean;
-    streaming?: boolean;
     fileAttachments?: FileAttachment[];
     fieldUpdates?: FieldUpdate[];
     conflicts?: ConflictInfo[];
@@ -61,24 +60,6 @@ function formatDisplayValue(value: any): string {
     if (value == null) return "";
     return String(value);
 }
-
-const generateUuid = (): string => {
-    // Fallback for browsers/environments without crypto.randomUUID
-    if (typeof crypto !== "undefined") {
-        if (typeof crypto.randomUUID === "function") {
-            return crypto.randomUUID();
-        }
-        if (typeof crypto.getRandomValues === "function") {
-            const bytes = new Uint8Array(16);
-            crypto.getRandomValues(bytes);
-            bytes[6] = (bytes[6] & 0x0f) | 0x40;
-            bytes[8] = (bytes[8] & 0x3f) | 0x80;
-            const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-            return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-        }
-    }
-    return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
-};
 
 const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMessage, onPendingMessageConsumed }: DREFAssistChatProps) => {
     const [messages, setMessages] = useState<Message[]>([
@@ -116,8 +97,8 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
     const fileInputRef = useRef<HTMLInputElement>(null);
     const createdUrlsRef = useRef<Set<string>>(new Set());
     const queuedUpdatesRef = useRef<Record<string, FieldUpdate[]>>({});
-    const latestSnapshotRef = useRef("");
-    const rafPendingRef = useRef(false);
+    const pendingMessageRef = useRef<string | null>(null);
+    const hasProcessedRef = useRef(false);
 
     const formatTime = (ms: number) => {
         const totalSec = Math.floor(ms / 1000);
@@ -151,13 +132,8 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                 const url = URL.createObjectURL(blob);
                 createdUrlsRef.current.add(url);
 
-                // Only allow one file per message — replace any existing selection
-                previewUrls.forEach(oldUrl => {
-                    URL.revokeObjectURL(oldUrl);
-                    createdUrlsRef.current.delete(oldUrl);
-                });
-                setSelectedFiles([file]);
-                setPreviewUrls([url]);
+                setSelectedFiles((prev) => [...prev, file]);
+                setPreviewUrls((prev) => [...prev, url]);
 
                 // stop tracks
                 if (streamRef.current) {
@@ -283,12 +259,150 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
 
     // Handle pending message from evaluation panel "Improve with AI" button
     useEffect(() => {
-        if (pendingMessage && isOpen) {
-            setInput(pendingMessage);
-            onPendingMessageConsumed?.();
-            inputRef.current?.focus();
+        if (!pendingMessage || !isOpen) {
+            return;
         }
-    }, [pendingMessage, isOpen, onPendingMessageConsumed]);
+        
+        // If this is a new message (different from the last one), reset the processed flag
+        if (pendingMessageRef.current !== pendingMessage) {
+            hasProcessedRef.current = false;
+        }
+        
+        // Mark that we've started processing this message
+        if (hasProcessedRef.current && pendingMessageRef.current === pendingMessage) {
+            return;
+        }
+        
+        // Store the message and mark as processing
+        pendingMessageRef.current = pendingMessage;
+        hasProcessedRef.current = true;
+        
+        const messageToSend = pendingMessage;
+        
+        // Auto-send the pending message directly
+        const sendPendingMessage = async () => {
+            const text = messageToSend.trim();
+            if (!text) {
+                return;
+            }
+
+            try {
+                // Create user message
+                const userMsg: Message = {
+                    id: crypto.randomUUID(),
+                    role: "user",
+                    content: text,
+                    timestamp: new Date(),
+                };
+
+                // Add to chat immediately
+                setMessages((prev) => {
+                    const updated = [...prev, userMsg];
+                    return updated;
+                });
+                setIsTyping(true);
+
+                // Build conversation history from current messages (excluding welcome)
+                setMessages((prevMessages) => {
+                    const conversationHistory = prevMessages
+                        .filter((m) => m.id !== "welcome" && m.id !== userMsg.id)
+                        .map((m) => ({
+                            role: m.role,
+                            content: m.content,
+                        }));
+
+                    // Send the message
+                    (async () => {
+                        try {
+                            const response = await sendChatMessage(
+                                text,
+                                formState,
+                                conversationHistory,
+                                undefined,
+                            );
+
+                            const msgId = crypto.randomUUID();
+                            let replyContent = response.reply;
+
+                            const hasUpdates = response.field_updates.length > 0;
+                            const hasConflicts = response.conflicts && response.conflicts.length > 0;
+
+                            if (hasConflicts) {
+                                const conflictFields = response.conflicts
+                                    .map((c: ConflictInfo) => c.field_label || getFieldLabel(c.field_name))
+                                    .join(", ");
+
+                                if (hasUpdates) {
+                                    replyContent += `\n\nI've also noticed conflicting information for **${conflictFields}**. Please review below and choose which values to keep.`;
+                                } else {
+                                    replyContent += `\n\nI noticed conflicting information for **${conflictFields}**. Please review below and choose which values to keep.`;
+                                }
+                            }
+
+                            const assistantMsg: Message = {
+                                id: msgId,
+                                role: "assistant",
+                                content: replyContent,
+                                timestamp: new Date(),
+                                fieldUpdates: hasConflicts ? undefined : response.field_updates,
+                                conflicts: response.conflicts,
+                            };
+
+                            // Add assistant response to chat
+                            setMessages((prev) => {
+                                const updated = [...prev, assistantMsg];
+                                return updated;
+                            });
+
+                            if (hasConflicts && hasUpdates) {
+                                queuedUpdatesRef.current[msgId] = response.field_updates;
+                            }
+
+                            // Store field updates as pending
+                            if (!hasConflicts && hasUpdates) {
+                                const tracked: Record<string, TrackedFieldUpdate> = {};
+                                for (const update of response.field_updates) {
+                                    tracked[update.field_id] = { update, status: "pending" };
+                                }
+                                setUpdateTracker((prev) => ({ ...prev, [msgId]: tracked }));
+                            }
+
+                            // Store conflicts as pending for interactive resolution
+                            if (response.conflicts && response.conflicts.length > 0) {
+                                const tracked: Record<string, TrackedConflict> = {};
+                                for (const conflict of response.conflicts) {
+                                    tracked[conflict.conflict_id] = { conflict, resolution: "pending" };
+                                }
+                                setConflictTracker((prev) => ({ ...prev, [msgId]: tracked }));
+                            }
+                        } catch (error) {
+                            console.error("Error in async send:", error);
+                            const errorMsg: Message = {
+                                id: crypto.randomUUID(),
+                                role: "assistant",
+                                content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+                                timestamp: new Date(),
+                            };
+                            setMessages((prev) => [...prev, errorMsg]);
+                        } finally {
+                            setIsTyping(false);
+                            // Mark the message as consumed AFTER it's been sent
+                            onPendingMessageConsumed?.();
+                        }
+                    })();
+
+                    return prevMessages;
+                });
+            } catch (error) {
+                console.error("Error in sendPendingMessage:", error);
+                onPendingMessageConsumed?.();
+            }
+        };
+
+        // Send with a small delay to ensure chat is open
+        const timer = setTimeout(sendPendingMessage, 100);
+        return () => clearTimeout(timer);
+    }, [isOpen, pendingMessage, onPendingMessageConsumed, formState]);
 
     // Build effective form state: accepted formState + all pending suggestions
     // This way the LLM sees what it already suggested and doesn't re-ask
@@ -462,7 +576,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
 
                 if (finalUpdates.length > 0) {
                     setTimeout(() => {
-                        const newMsgId = generateUuid();
+                        const newMsgId = crypto.randomUUID();
                         const newMsg: Message = {
                             id: newMsgId,
                             role: "assistant",
@@ -481,7 +595,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                     }, 0);
                 } else {
                     setTimeout(() => {
-                        const newMsgId = generateUuid();
+                        const newMsgId = crypto.randomUUID();
                         setMessages((prevMsg) => [...prevMsg, {
                             id: newMsgId,
                             role: "assistant",
@@ -541,20 +655,13 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        // Only allow one file per message — replace any existing selection
-        const file = files[0];
-        const url = URL.createObjectURL(file);
+        const newFiles = Array.from(files);
+        const newUrls = newFiles.map((file) => URL.createObjectURL(file));
 
-        // Revoke old preview URLs
-        previewUrls.forEach(oldUrl => {
-            URL.revokeObjectURL(oldUrl);
-            createdUrlsRef.current.delete(oldUrl);
-        });
+        newUrls.forEach(url => createdUrlsRef.current.add(url));
 
-        createdUrlsRef.current.add(url);
-
-        setSelectedFiles([file]);
-        setPreviewUrls([url]);
+        setSelectedFiles(prev => [...prev, ...newFiles]);
+        setPreviewUrls(prev => [...prev, ...newUrls]);
 
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
@@ -596,7 +703,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
         }));
 
         const userMsg: Message = {
-            id: generateUuid(),
+            id: crypto.randomUUID(),
             role: "user",
             content: text || (selectedFiles.length > 0 ? `Sent ${selectedFiles.length} file(s)` : ""),
             timestamp: new Date(),
@@ -617,9 +724,6 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
         setSelectedFiles([]);
         setPreviewUrls([]);
 
-        const msgId = generateUuid();
-        let messageInserted = false;
-
         try {
             // Send effective form state (includes pending suggestions) so
             // the LLM knows what it already suggested and doesn't re-ask
@@ -630,38 +734,9 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                 effectiveFormState,
                 buildConversationHistory(),
                 filesToSend,
-                // onReplyChunk — buffer snapshots and flush once per animation frame
-                // so React doesn't re-render on every single token.
-                (_delta, snapshot) => {
-                    latestSnapshotRef.current = snapshot;
-                    if (!rafPendingRef.current) {
-                        rafPendingRef.current = true;
-                        requestAnimationFrame(() => {
-                            rafPendingRef.current = false;
-                            const text = latestSnapshotRef.current;
-                            if (!messageInserted) {
-                                messageInserted = true;
-                                setMessages((prev) => [...prev, {
-                                    id: msgId,
-                                    role: "assistant" as const,
-                                    content: text,
-                                    timestamp: new Date(),
-                                    streaming: true,
-                                }]);
-                            } else {
-                                setMessages((prev) =>
-                                    prev.map((m) =>
-                                        m.id === msgId ? { ...m, content: text } : m
-                                    )
-                                );
-                            }
-                        });
-                    }
-                },
-                // onStatus — no-op; the existing isTyping indicator already
-                // shows "Response Generating..." so we skip duplicate status text.
-                undefined,
             );
+
+            const msgId = crypto.randomUUID();
 
             // Build reply with natural conflict acknowledgment
             let replyContent = response.reply;
@@ -681,23 +756,17 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                 }
             }
 
-            // Replace or insert the final structured response
-            const finalMsg: Message = {
+            const assistantMsg: Message = {
                 id: msgId,
                 role: "assistant",
                 content: replyContent,
                 timestamp: new Date(),
+                // ONLY show updates in this message if there are NO conflicts
                 fieldUpdates: hasConflicts ? undefined : response.field_updates,
                 conflicts: response.conflicts,
             };
 
-            if (messageInserted) {
-                setMessages((prev) =>
-                    prev.map((m) => (m.id === msgId ? finalMsg : m))
-                );
-            } else {
-                setMessages((prev) => [...prev, finalMsg]);
-            }
+            setMessages((prev) => [...prev, assistantMsg]);
 
             if (hasConflicts && hasUpdates) {
                 queuedUpdatesRef.current[msgId] = response.field_updates;
@@ -721,21 +790,13 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                 setConflictTracker((prev) => ({ ...prev, [msgId]: tracked }));
             }
         } catch (error) {
-            const errorContent = `Sorry, I encountered an error: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`;
-            if (messageInserted) {
-                setMessages((prev) =>
-                    prev.map((m) =>
-                        m.id === msgId ? { ...m, content: errorContent } : m
-                    )
-                );
-            } else {
-                setMessages((prev) => [...prev, {
-                    id: msgId,
-                    role: "assistant" as const,
-                    content: errorContent,
-                    timestamp: new Date(),
-                }]);
-            }
+            const errorMsg: Message = {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`,
+                timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, errorMsg]);
         } finally {
             setIsTyping(false);
         }
@@ -996,11 +1057,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                                     }`}
                             >
                                 <div className="break-words prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-1.5">
-                                    {msg.streaming ? (
-                                        <p className="whitespace-pre-wrap">{msg.content}<span className="inline-block w-1.5 h-4 ml-0.5 bg-current animate-pulse align-text-bottom" /></p>
-                                    ) : (
-                                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                                    )}
+                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
                                 </div>
 
                                 {msg.fileAttachments && msg.fileAttachments.length > 0 && (
@@ -1084,7 +1141,7 @@ const DREFAssistChat = ({ onClose, formState, onFieldUpdates, isOpen, pendingMes
                         className="flex-1 text-sm"
                         disabled={isTyping}
                     />
-                    <input ref={fileInputRef} type="file" className="hidden" onChange={handleFilePick} />
+                    <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFilePick} />
                     <Button
                         size="icon"
                         onClick={() => fileInputRef.current?.click()}

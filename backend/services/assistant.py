@@ -6,13 +6,11 @@ in with each request. Conflict detection runs per-request using the
 enriched form state from the frontend.
 """
 
-import json
 import os
-import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 
 from openai import AzureOpenAI
 from dotenv import load_dotenv
@@ -27,8 +25,7 @@ sys.path.insert(0, str(_backend_path / "conflict_resolver"))
 
 from media_processor import MediaProcessor, ProcessingInput, FileInput, FileType
 from media_processor.formatter import format_for_llm
-from llm_handler import handle_message, handle_message_stream
-from llm_handler.parser import process_llm_response
+from llm_handler import handle_message
 from conflict_resolver.detector import ConflictDetector, FieldValue
 
 FIELD_LABELS = {
@@ -110,19 +107,6 @@ def _create_azure_client() -> AzureOpenAI:
     )
 
 
-# Module-level singleton — reused across all requests to avoid
-# re-creating TCP connections on every call.
-_shared_client: Optional[AzureOpenAI] = None
-
-
-def get_shared_client() -> AzureOpenAI:
-    """Return the module-level AzureOpenAI singleton, creating it on first use."""
-    global _shared_client
-    if _shared_client is None:
-        _shared_client = _create_azure_client()
-    return _shared_client
-
-
 def _extract_plain_form_state(enriched_form_state: Dict[str, Any]) -> Dict[str, Any]:
     """Extract plain values from enriched form state for the LLM.
 
@@ -195,257 +179,91 @@ def process_user_input(
         - conflicts: list of conflict dicts (if any)
         - processing_summary: dict (if files provided)
     """
-    if client is None:
-        client = get_shared_client()
+    try:
+        if client is None:
+            client = _create_azure_client()
 
-    # Extract plain values for the LLM (it doesn't need source metadata)
-    plain_form_state = _extract_plain_form_state(enriched_form_state)
+        # Extract plain values for the LLM (it doesn't need source metadata)
+        plain_form_state = _extract_plain_form_state(enriched_form_state)
 
-    llm_input: Any
+        llm_input: Any
 
-    processing_summary = None
-    fallback_source = "user_message"
+        processing_summary = None
+        source = "user_message"
 
-    if files:
-        file_inputs = [
-            FileInput(
-                data=f["data"],
-                type=FileType(f["type"]),
-                filename=f["filename"],
-            )
-            for f in files
-        ]
+        if files:
+            file_inputs = [
+                FileInput(
+                    data=f["data"],
+                    type=FileType(f["type"]),
+                    filename=f["filename"],
+                )
+                for f in files
+            ]
 
-        processor = MediaProcessor()
-        processing_result = processor.process(ProcessingInput(files=file_inputs))
+            processor = MediaProcessor()
+            processing_result = processor.process(ProcessingInput(files=file_inputs))
 
-        formatted = format_for_llm(processing_result, user_message)
-        llm_input = formatted["content"]
+            formatted = format_for_llm(processing_result, user_message)
+            llm_input = formatted["content"]
 
-        summary = processing_result.processing_summary
-        processing_summary = {
-            "total_files": summary.total_files,
-            "successful": summary.successful,
-            "failed": summary.failed,
-        }
-
-        fallback_source = files[0]["filename"]
-        if len(files) > 1:
-            fallback_source = ", ".join(f["filename"] for f in files)
-    else:
-        llm_input = user_message
-
-    # Call LLM handler
-    llm_result = handle_message(
-        user_message=llm_input,
-        current_form_state=plain_form_state,
-        conversation_history=conversation_history,
-        client=client,
-    )
-
-    # Conflict detection against enriched form state
-    field_values = _enriched_to_field_values(enriched_form_state)
-    detector = ConflictDetector(field_labels=FIELD_LABELS)
-    normalized_updates = _normalize_updates_for_detector(llm_result.get("field_updates", []))
-
-    conflicts, non_conflicting = detector.detect_conflicts(
-        current_state=field_values,
-        new_updates=normalized_updates,
-        source=fallback_source,
-    )
-
-    # Build response with enriched field updates (add source + timestamp)
-    timestamp = datetime.now(timezone.utc).isoformat()
-    enriched_updates = [
-        {
-            "field_id": u["field"],
-            "value": u["value"],
-            "source": u.get("source") or fallback_source,
-            "timestamp": timestamp,
-        }
-        for u in non_conflicting
-    ]
-
-    response = {
-        "classification": llm_result.get("classification"),
-        "reply": llm_result.get("reply"),
-        "field_updates": enriched_updates,
-        "conflicts": [c.to_dict() for c in conflicts] if conflicts else [],
-    }
-
-    if processing_summary:
-        response["processing_summary"] = processing_summary
-
-    return response
-
-
-# ---------------------------------------------------------------------------
-# Reply extraction helper for streaming
-# ---------------------------------------------------------------------------
-
-_REPLY_KEY_RE = re.compile(r'"reply"\s*:\s*"')
-
-
-def _extract_reply_from_partial_json(accumulated: str) -> Optional[str]:
-    """Try to extract the reply value from a partially-streamed JSON string.
-
-    Returns the decoded reply text so far, or None if the reply key hasn't
-    appeared yet.
-    """
-    match = _REPLY_KEY_RE.search(accumulated)
-    if not match:
-        return None
-
-    start = match.end()
-    chars: list[str] = []
-    i = start
-    while i < len(accumulated):
-        c = accumulated[i]
-        if c == '\\':
-            if i + 1 < len(accumulated):
-                nc = accumulated[i + 1]
-                if nc == 'n':
-                    chars.append('\n')
-                elif nc == 't':
-                    chars.append('\t')
-                elif nc == '"':
-                    chars.append('"')
-                elif nc == '\\':
-                    chars.append('\\')
-                elif nc == '/':
-                    chars.append('/')
-                else:
-                    chars.append(nc)
-                i += 2
-            else:
-                break  # incomplete escape, wait for more tokens
-        elif c == '"':
-            break  # end of reply string
-        else:
-            chars.append(c)
-            i += 1
-    return "".join(chars)
-
-
-# ---------------------------------------------------------------------------
-# Streaming orchestration
-# ---------------------------------------------------------------------------
-
-def process_user_input_stream(
-    user_message: str,
-    enriched_form_state: Dict[str, Any],
-    files: Optional[List[Dict[str, Any]]] = None,
-    conversation_history: Optional[List[Dict[str, Any]]] = None,
-    client: Optional[AzureOpenAI] = None,
-) -> Generator[Dict[str, Any], None, None]:
-    """Streaming version of process_user_input.
-
-    Yields SSE-ready dicts with an ``event`` key:
-
-    * ``{"event": "status", "data": {"message": "..."}``  – progress update
-    * ``{"event": "reply_chunk", "data": {"delta": "...", "snapshot": "..."}}``
-      – incremental reply text as it's decoded from the streaming JSON
-    * ``{"event": "done", "data": { ... full ChatResponse ... }}``
-      – final structured response identical to what process_user_input returns
-    * ``{"event": "error", "data": {"detail": "..."}}`` – on failure
-    """
-    if client is None:
-        client = get_shared_client()
-
-    plain_form_state = _extract_plain_form_state(enriched_form_state)
-
-    llm_input: Any
-    processing_summary = None
-    fallback_source = "user_message"
-
-    # --- Phase 1: media processing (if files provided) ---
-    if files:
-        yield {"event": "status", "data": {"message": "Processing uploaded files\u2026"}}
-
-        file_inputs = [
-            FileInput(
-                data=f["data"],
-                type=FileType(f["type"]),
-                filename=f["filename"],
-            )
-            for f in files
-        ]
-
-        processor = MediaProcessor()
-        processing_result = processor.process(ProcessingInput(files=file_inputs))
-
-        formatted = format_for_llm(processing_result, user_message)
-        llm_input = formatted["content"]
-
-        summary = processing_result.processing_summary
-        processing_summary = {
-            "total_files": summary.total_files,
-            "successful": summary.successful,
-            "failed": summary.failed,
-        }
-
-        fallback_source = files[0]["filename"]
-        if len(files) > 1:
-            fallback_source = ", ".join(f["filename"] for f in files)
-    else:
-        llm_input = user_message
-
-    # --- Phase 2: stream LLM tokens ---
-    yield {"event": "status", "data": {"message": "Generating response\u2026"}}
-
-    accumulated = ""
-    prev_reply_len = 0
-
-    for delta, acc in handle_message_stream(
-        user_message=llm_input,
-        current_form_state=plain_form_state,
-        conversation_history=conversation_history,
-        client=client,
-    ):
-        accumulated = acc
-
-        # Try to extract reply text progressively
-        reply_so_far = _extract_reply_from_partial_json(accumulated)
-        if reply_so_far and len(reply_so_far) > prev_reply_len:
-            new_text = reply_so_far[prev_reply_len:]
-            prev_reply_len = len(reply_so_far)
-            yield {
-                "event": "reply_chunk",
-                "data": {"delta": new_text, "snapshot": reply_so_far},
+            summary = processing_result.processing_summary
+            processing_summary = {
+                "total_files": summary.total_files,
+                "successful": summary.successful,
+                "failed": summary.failed,
             }
 
-    # --- Phase 3: parse final response and run conflict detection ---
-    llm_result = process_llm_response(accumulated)
+            source = files[0]["filename"]
+            if len(files) > 1:
+                source = f"{files[0]['filename']} (+{len(files)-1} more)"
+        else:
+            llm_input = user_message
 
-    field_values = _enriched_to_field_values(enriched_form_state)
-    detector = ConflictDetector(field_labels=FIELD_LABELS)
-    normalized_updates = _normalize_updates_for_detector(llm_result.get("field_updates", []))
+        # Call LLM handler
+        llm_result = handle_message(
+            user_message=llm_input,
+            current_form_state=plain_form_state,
+            conversation_history=conversation_history,
+            client=client,
+        )
 
-    conflicts, non_conflicting = detector.detect_conflicts(
-        current_state=field_values,
-        new_updates=normalized_updates,
-        source=fallback_source,
-    )
+        # Conflict detection against enriched form state
+        field_values = _enriched_to_field_values(enriched_form_state)
+        detector = ConflictDetector(field_labels=FIELD_LABELS)
+        normalized_updates = _normalize_updates_for_detector(llm_result.get("field_updates", []))
 
-    timestamp = datetime.now(timezone.utc).isoformat()
-    enriched_updates = [
-        {
-            "field_id": u["field"],
-            "value": u["value"],
-            "source": u.get("source") or fallback_source,
-            "timestamp": timestamp,
+        conflicts, non_conflicting = detector.detect_conflicts(
+            current_state=field_values,
+            new_updates=normalized_updates,
+            source=source,
+        )
+
+        # Build response with enriched field updates (add source + timestamp)
+        timestamp = datetime.now(timezone.utc).isoformat()
+        enriched_updates = [
+            {
+                "field_id": u["field"],
+                "value": u["value"],
+                "source": source,
+                "timestamp": timestamp,
+            }
+            for u in non_conflicting
+        ]
+
+        response = {
+            "classification": llm_result.get("classification"),
+            "reply": llm_result.get("reply"),
+            "field_updates": enriched_updates,
+            "conflicts": [c.to_dict() for c in conflicts] if conflicts else [],
         }
-        for u in non_conflicting
-    ]
 
-    response: Dict[str, Any] = {
-        "classification": llm_result.get("classification"),
-        "reply": llm_result.get("reply"),
-        "field_updates": enriched_updates,
-        "conflicts": [c.to_dict() for c in conflicts] if conflicts else [],
-    }
+        if processing_summary:
+            response["processing_summary"] = processing_summary
 
-    if processing_summary:
-        response["processing_summary"] = processing_summary
-
-    yield {"event": "done", "data": response}
+        return response
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"Error in process_user_input: {str(e)}")
+        raise
