@@ -21,6 +21,7 @@ load_dotenv()
 LLM_TIMEOUT = 30  # seconds - prevents hanging on Azure OpenAI calls
 LLM_MAX_RETRIES = 3  # maximum number of retry attempts
 LLM_RETRY_BASE_DELAY = 1  # seconds - initial delay for exponential backoff
+MAX_HISTORY_MESSAGES = 10  # send only the last 5 exchanges (10 messages) to the LLM
 
 # Type alias for message content (text string or multimodal list from media-processor)
 MessageContent = Union[str, List[Dict[str, Any]]]
@@ -54,7 +55,7 @@ def _build_messages(
     system_prompt = build_system_prompt(current_form_state)
     messages: List[Dict[str, Any]] = [{"role": "system", "content": system_prompt}]
     if conversation_history:
-        messages.extend(conversation_history)
+        messages.extend(conversation_history[-MAX_HISTORY_MESSAGES:])
     messages.append({"role": "user", "content": user_message})
     return messages
 
@@ -154,7 +155,7 @@ def handle_message(
         messages: List[Dict[str, Any]] = [{"role": "system", "content": system_prompt}]
 
         if conversation_history:
-            messages.extend(conversation_history)
+            messages.extend(conversation_history[-MAX_HISTORY_MESSAGES:])
 
         messages.append({"role": "user", "content": user_message})
 
