@@ -7,7 +7,7 @@ prompt construction, API calls, and response processing.
 
 import os
 import time
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, Generator, List, Optional, Tuple, Union
 
 from openai import AzureOpenAI, RateLimitError, APITimeoutError
 from dotenv import load_dotenv
@@ -24,6 +24,39 @@ LLM_RETRY_BASE_DELAY = 1  # seconds - initial delay for exponential backoff
 
 # Type alias for message content (text string or multimodal list from media-processor)
 MessageContent = Union[str, List[Dict[str, Any]]]
+
+
+def _create_client() -> AzureOpenAI:
+    """Create an AzureOpenAI client from environment variables."""
+    api_key = os.getenv("AZURE_OPENAI_API_KEY")
+    endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    api_version = os.getenv("AZURE_OPENAI_API_VERSION")
+
+    if not api_key or not endpoint or not api_version:
+        raise ValueError(
+            f"Missing Azure OpenAI config: api_key={bool(api_key)}, "
+            f"endpoint={bool(endpoint)}, api_version={bool(api_version)}"
+        )
+
+    return AzureOpenAI(
+        api_key=api_key,
+        azure_endpoint=endpoint,
+        api_version=api_version,
+    )
+
+
+def _build_messages(
+    user_message: MessageContent,
+    current_form_state: Dict[str, Any],
+    conversation_history: Optional[List[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """Build the messages array for the OpenAI API call."""
+    system_prompt = build_system_prompt(current_form_state)
+    messages: List[Dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+    if conversation_history:
+        messages.extend(conversation_history)
+    messages.append({"role": "user", "content": user_message})
+    return messages
 
 
 def _call_llm_with_retry(client: AzureOpenAI, deployment: str, messages: List[Dict[str, Any]]) -> str:
@@ -140,3 +173,44 @@ def handle_message(
             "reply": f"An error occurred while processing your message: {str(e)}",
             "field_updates": [],
         }
+
+
+def handle_message_stream(
+    user_message: MessageContent,
+    current_form_state: Dict[str, Any],
+    conversation_history: Optional[List[Dict[str, Any]]] = None,
+    client: Optional[AzureOpenAI] = None,
+) -> Generator[Tuple[str, str], None, None]:
+    """
+    Stream a user message response, yielding (delta, accumulated) tuples.
+
+    Same as handle_message but uses stream=True. Yields raw token deltas
+    as they arrive. The caller is responsible for parsing the final
+    accumulated JSON via process_llm_response().
+
+    Yields:
+        Tuples of (delta_text, accumulated_text).
+    """
+    if client is None:
+        client = _create_client()
+
+    messages = _build_messages(user_message, current_form_state, conversation_history)
+
+    deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
+    print(f"Calling Azure OpenAI (streaming) with deployment: {deployment}")
+
+    stream = client.chat.completions.create(
+        model=deployment,
+        messages=messages,
+        temperature=0.1,
+        response_format={"type": "json_object"},
+        stream=True,
+        timeout=LLM_TIMEOUT,
+    )
+
+    accumulated = ""
+    for chunk in stream:
+        if chunk.choices and chunk.choices[0].delta.content:
+            delta = chunk.choices[0].delta.content
+            accumulated += delta
+            yield delta, accumulated
