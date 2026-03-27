@@ -9,7 +9,7 @@
 ![Azure OpenAI](https://img.shields.io/badge/Azure%20OpenAI-GPT--4o-ff6f00)
 ![Built for](https://img.shields.io/badge/Built%20for-IFRC-ED1B2F?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEyIDJMMiAyMmgyMEwxMiAyeiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=)
 
-DREF Assist helps emergency surveyors complete [DREF (Disaster Response Emergency Fund)](https://www.ifrc.org/disaster-response-emergency-fund-dref) applications faster and to a higher standard. It accepts multimodal inputs — text, PDFs, images, voice recordings, and video — processes them through Azure OpenAI GPT-4o, and automatically populates the DREF application form via a conversational chat interface. When conflicting data is detected across sources, the system pauses for human resolution. A built-in evaluation engine scores the completed application against IFRC rubric criteria and suggests improvements.
+DREF Assist helps emergency surveyors complete [DREF (Disaster Response Emergency Fund)](https://www.ifrc.org/disaster-response-emergency-fund-dref) applications faster and to a higher standard. It accepts multimodal inputs — text, PDFs, images, voice recordings, and video — processes them through Azure OpenAI GPT-4o, and automatically populates the DREF application form via a conversational chat interface with real-time SSE streaming. When conflicting data is detected across sources, the system pauses for human resolution. A built-in evaluation engine scores the completed application against IFRC rubric criteria and suggests improvements.
 
 ---
 
@@ -26,47 +26,16 @@ DREF Assist helps emergency surveyors complete [DREF (Disaster Response Emergenc
 
 ## Architecture
 
-```mermaid
-flowchart TB
-    subgraph Frontend["prototypefrontend/ — React + TypeScript"]
-        UI["DREF Form Wizard<br>(5-step IFRC GO UI)"]
-        Chat["AI Chat Assistant<br>(text, files, voice)"]
-        Eval["Evaluation Panel<br>(rubric results)"]
-    end
+![System Architecture](docs/system-architecture.png)
 
-    subgraph Backend["backend/ — FastAPI"]
-        API["FastAPI Router<br>/api/chat · /api/evaluate"]
-        MP["Media Processor<br>PDF · DOCX · Image<br>Audio · Video"]
-        LLM["LLM Handler<br>GPT-4o · JSON mode<br>Field extraction"]
-        CR["Conflict Resolver<br>Within-batch · Cross-batch<br>Numeric tolerance"]
-        DE["DREF Evaluator<br>Pass 1: Rule-based<br>Pass 2: LLM quality"]
-    end
-
-    subgraph External["External Services"]
-        GPT["Azure OpenAI<br>GPT-4o"]
-        Whisper["Azure OpenAI<br>Whisper"]
-    end
-
-    UI <--> Chat
-    UI <--> Eval
-    Chat -- "POST /api/chat<br>(form state + files + history)" --> API
-    Eval -- "POST /api/evaluate" --> API
-    API --> MP
-    MP --> LLM
-    LLM --> CR
-    API --> DE
-    MP -- "audio/video" --> Whisper
-    LLM --> GPT
-    DE --> GPT
-```
-
-> The system is **stateless** — the frontend sends the full form state, conversation history, and files with every request. No database or session storage is required.
+> The system is **stateless** — the frontend sends the full form state, conversation history, and files with every request. No database or session storage is required. The `/api/chat` endpoint uses **SSE (Server-Sent Events)** to stream responses in real time, while `/api/evaluate` returns standard JSON.
 
 ---
 
 ## Key Features
 
-- **Multimodal input** — upload PDFs, DOCX, images, audio recordings, and video; each processed by a specialised handler
+- **Multimodal input** — upload PDFs, DOCX, images, audio recordings, and video (one file per message); each processed by a specialised handler
+- **Real-time streaming** — SSE-based streaming delivers AI responses token-by-token for a smooth conversational experience
 - **Auto field population** — GPT-4o extracts structured data from uploads and chat messages, mapping it to 56 DREF form fields
 - **Conflict resolution** — detects contradictions between new data and existing form values, pauses for user decision
 - **Automated evaluation** — two-pass scoring (rule-based + LLM) against the IFRC rubric with actionable improvement suggestions
@@ -114,6 +83,7 @@ DREF-Assist/
 | UI components | shadcn/ui (45+ Radix primitives), Tailwind CSS 3.4 |
 | Forms | React Hook Form + Zod validation |
 | Server state | TanStack React Query |
+| Streaming | SSE (Server-Sent Events) for real-time chat responses |
 | State architecture | Stateless — enriched form state (value + source + timestamp) sent per request |
 
 ---

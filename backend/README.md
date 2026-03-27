@@ -4,7 +4,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi)
 ![Azure OpenAI](https://img.shields.io/badge/Azure%20OpenAI-GPT--4o-ff6f00)
 
-The DREF Assist backend is a **stateless FastAPI application** that powers the AI pipeline behind DREF application assistance. It accepts multimodal inputs (text, images, PDFs, DOCX, audio, video), processes them through media-specific handlers, sends the extracted content to Azure OpenAI GPT-4o for field extraction, detects conflicts when new data contradicts existing form values, and evaluates completed applications against the IFRC rubric. The frontend sends the full form state with every request — the backend stores nothing.
+The DREF Assist backend is a **stateless FastAPI application** that powers the AI pipeline behind DREF application assistance. It accepts multimodal inputs (text, images, PDFs, DOCX, audio, video — one file per message), processes them through media-specific handlers, sends the extracted content to Azure OpenAI GPT-4o for field extraction, and detects conflicts when new data contradicts existing form values. Chat responses are streamed in real time via **SSE (Server-Sent Events)**. A two-pass evaluation engine scores completed applications against the IFRC rubric. The frontend sends the full form state with every request — the backend stores nothing.
 
 ---
 
@@ -25,42 +25,16 @@ The DREF Assist backend is a **stateless FastAPI application** that powers the A
 
 ## Architecture Overview
 
-```
-User Request (message + files + form state)
-    │
-    ▼
-┌──────────────────────────────────┐
-│         FastAPI  (app.py)        │
-│  CORS · file detection · routing │
-└──────┬───────────────────────────┘
-       │
-       ├──► Media Processor (media-processor/)
-       │    ├─ ImageHandler   → passthrough as base64
-       │    ├─ AudioHandler   → Azure Whisper transcription
-       │    ├─ VideoHandler   → frame extraction (OpenCV) + dedup + Whisper
-       │    ├─ PDFHandler     → PyMuPDF text + image extraction
-       │    └─ DOCXHandler    → python-docx text + image extraction
-       │    └─ Formatter      → assembles GPT-4o-compatible message
-       │
-       ├──► LLM Handler (llm_handler/)
-       │    ├─ Prompt Builder → system prompt with field schema + form state
-       │    ├─ GPT-4o Call    → temperature 0.1, JSON mode
-       │    └─ Parser         → validates classification + field updates
-       │
-       ├──► Conflict Detector (conflict_resolver/)
-       │    ├─ Within-batch   → same field updated multiple times in one request
-       │    └─ Cross-batch    → new update contradicts existing form value
-       │
-       └──► DREF Evaluator (dref_evaluation/)
-            ├─ Pass 1: Rule-based rubric scoring (43 criteria)
-            └─ Pass 2: LLM-based text quality + improvement suggestions
-```
+![Backend Architecture](docs/backend-architecture.png)
 
 **Key design decisions:**
 
 | Decision | Rationale |
 |---|---|
 | Stateless | All state (form values, conversation history) is passed per request — no database or session storage required. |
+| SSE streaming | `/api/chat` returns a Server-Sent Events stream (`status`, `reply_chunk`, `done`, `error` events) for real-time token-by-token delivery. |
+| Singleton client | A shared `AzureOpenAI` client instance is reused across requests (one for chat, one for evaluation) to avoid recreating TCP connections. |
+| One file per message | File uploads are limited to a single file per chat message to simplify processing and improve reliability. |
 | Modular | Each concern (media, LLM, conflicts, evaluation) is an independent package with its own tests. |
 | Hybrid evaluation | Non-text fields are evaluated with deterministic rules; text fields use LLM-based quality assessment. |
 | Field taxonomy | Fields are categorised as FACTUAL (extract only explicit values), INFERRED (logical deduction), or SYNTHESIZED (compose from evidence). |
@@ -206,14 +180,14 @@ curl http://127.0.0.1:8000/api/health
 
 ### `POST /api/chat`
 
-Main conversational endpoint. Processes a user message (with optional file uploads) against the current form state and returns field updates, conflicts, and a natural-language reply.
+Main conversational endpoint. Processes a user message (with an optional file upload) against the current form state and streams back field updates, conflicts, and a natural-language reply via **SSE (Server-Sent Events)**.
 
 **Request:** `multipart/form-data`
 
 | Field | Type | Description |
 |---|---|---|
 | `data` | JSON string (required) | `{"user_message": "...", "form_state": {...}, "conversation_history": [...]}` |
-| `files` | File(s) (optional) | One or more uploaded files (images, PDFs, DOCX, audio, video). |
+| `files` | File (optional) | A single uploaded file (image, PDF, DOCX, audio, or video). Only one file per message is allowed. |
 
 **`data` payload schema:**
 
@@ -234,7 +208,18 @@ Main conversational endpoint. Processes a user message (with optional file uploa
 }
 ```
 
-**Response:**
+**Response:** `text/event-stream` (SSE)
+
+The response is a stream of Server-Sent Events. Each event has a `type` and `data` field:
+
+| Event type | Description | Data payload |
+|---|---|---|
+| `status` | Processing progress update | `{"message": "Processing uploaded file..."}` |
+| `reply_chunk` | Incremental reply token | `{"delta": "I've", "snapshot": "I've"}` |
+| `done` | Final complete response | Full JSON response (see below) |
+| `error` | Processing error | `{"message": "..."}` |
+
+**Final `done` payload:**
 
 ```json
 {
@@ -269,7 +254,7 @@ Main conversational endpoint. Processes a user message (with optional file uploa
 **Example:**
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/chat \
+curl -N -X POST http://127.0.0.1:8000/api/chat \
   -F 'data={"user_message":"Flood in Nepal, 50k affected","form_state":{},"conversation_history":[]}' \
   -F 'files=@report.pdf'
 ```
