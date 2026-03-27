@@ -5,7 +5,7 @@
 ![Vite](https://img.shields.io/badge/Vite-7.3-646cff?logo=vite)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06b6d4?logo=tailwindcss)
 
-The DREF Assist frontend is a **React + TypeScript** application that replicates the IFRC GO DREF application form as a multi-step wizard. It integrates an AI-powered chat assistant (backed by the DREF Assist backend) that accepts text, files, and voice input to auto-populate form fields. The application includes real-time evaluation against IFRC rubric criteria, conflict resolution when contradictory data is detected, and a review-and-submit workflow. The UI is themed to match the existing IFRC GO platform so field officers do not need retraining.
+The DREF Assist frontend is a **React + TypeScript** application that replicates the IFRC GO DREF application form as a multi-step wizard. It integrates an AI-powered chat assistant (backed by the DREF Assist backend) that accepts text, a single file upload, and voice input to auto-populate form fields. Chat responses are delivered in real time via **SSE (Server-Sent Events)** streaming. The application includes real-time evaluation against IFRC rubric criteria, conflict resolution when contradictory data is detected, and a review-and-submit workflow. The UI is themed to match the existing IFRC GO platform so field officers do not need retraining.
 
 ---
 
@@ -53,8 +53,8 @@ The DREF Assist frontend is a **React + TypeScript** application that replicates
 ### Data flow
 
 1. **User fills form** → `handleFieldChange` updates `EnrichedFormState` (value + source + timestamp).
-2. **User sends chat message** (optionally with files/audio) → `sendChatMessage()` POSTs to `/api/chat` with current form state and conversation history.
-3. **Backend returns** `field_updates` and `conflicts` → Chat displays suggested updates with accept/reject buttons.
+2. **User sends chat message** (optionally with a single file or audio recording) → `sendChatMessage()` POSTs to `/api/chat` with current form state and conversation history.
+3. **Backend streams response** via SSE → Chat displays the AI reply token-by-token as it arrives, then renders `field_updates` and `conflicts` with accept/reject buttons.
 4. **User accepts updates** → Form state updates propagate to the active step form.
 5. **User clicks "Evaluate"** → `evaluateDref()` or `evaluateSection()` calls the backend → `EvaluationPanel` displays per-criterion pass/fail results with "Improve with AI" buttons that pre-fill the chat.
 
@@ -205,9 +205,9 @@ prototypefrontend/
         │   ├── ReviewSubmitPage.tsx            # Step 5: Read-only review before submit
         │   │
         │   │  ── AI & Evaluation ──
-        │   ├── DREFAssistChat.tsx      # AI chat panel — file upload, audio recording,
-        │   │                           #   markdown rendering, accept/reject field
-        │   │                           #   updates, conflict resolution UI (~1100 lines)
+        │   ├── DREFAssistChat.tsx      # AI chat panel — single file upload, audio recording,
+        │   │                           #   SSE streaming, markdown rendering, accept/reject
+        │   │                           #   field updates, conflict resolution UI
         │   ├── EvaluationPanel.tsx     # Slide-in panel — per-section rubric results
         │   │                           #   with "Improve with AI" buttons
         │   ├── FinalEvaluationDialog.tsx  # Modal — overall pass/fail summary + progress
@@ -227,9 +227,9 @@ prototypefrontend/
         │       └── ...
         │
         ├── lib/
-        │   ├── api.ts                  # Backend API client — sendChatMessage(),
-        │   │                           #   evaluateDref(), evaluateSection() + all
-        │   │                           #   TypeScript interfaces for API types
+        │   ├── api.ts                  # Backend API client — sendChatMessage() with
+        │   │                           #   SSE stream parsing, evaluateDref(),
+        │   │                           #   evaluateSection() + TypeScript interfaces
         │   ├── fieldLabels.ts          # Field ID → human-readable label mapping
         │   └── utils.ts               # cn() utility for Tailwind class merging
         │
