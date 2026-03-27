@@ -100,7 +100,7 @@ The frontend does **not** use a `.env` file. Configuration is handled in [vite.c
 
 ```bash
 # 1. Clone the repository (if you haven't already)
-git clone https://github.com/fbs617/DREF-Assist.git
+git clone https://github.com/IFRCGo/DREF-Assist.git
 cd DREF-Assist/prototypefrontend/drefprototype
 
 # 2. Install dependencies

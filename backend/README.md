@@ -80,7 +80,7 @@ Create a `.env` file in the `backend/` directory. Every variable listed below is
 
 ```bash
 # 1. Clone the repository (if you haven't already)
-git clone https://github.com/fbs617/DREF-Assist.git
+git clone https://github.com/IFRCGo/DREF-Assist.git
 cd DREF-Assist/backend
 
 # 2. Create and activate a virtual environment
@@ -92,10 +92,10 @@ source .venv/bin/activate        # macOS / Linux
 pip install -r requirements.txt
 
 # 4. Create your environment file
-cp .env.example .env             # Then fill in your Azure keys
+# Create a .env file using the Environment Variables table above
 ```
 
-> ⚠️ **TODO:** An `.env.example` file with placeholder values does not yet exist in the repository. Create one manually using the [Environment Variables](#environment-variables) table above.
+> ⚠️ **Note:** There is no `.env.example` file — create a `.env` file manually using the [Environment Variables](#environment-variables) table above.
 
 ---
 

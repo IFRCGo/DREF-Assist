@@ -100,7 +100,7 @@ DREF-Assist/
 ### 1. Clone
 
 ```bash
-git clone https://github.com/fbs617/DREF-Assist.git
+git clone https://github.com/IFRCGo/DREF-Assist.git
 cd DREF-Assist
 ```
 
